@@ -43,7 +43,7 @@ export default function Home() {
       email: "",
       phone: "",
       DOB: "",
-      members: [],
+      members: [{ name: "", DOB: "", PhoneNumber: "" }], // One member by default
     },
   })
 
@@ -51,6 +51,17 @@ export default function Home() {
     control: form.control,
     name: "members",
   })
+
+  const formatPhoneNumber = (value: string) => {
+    if (!value) return value
+    const phoneNumber = value.replace(/[^\d]/g, "")
+    const phoneNumberLength = phoneNumber.length
+    if (phoneNumberLength < 4) return phoneNumber
+    if (phoneNumberLength < 7) {
+      return `(${phoneNumber.slice(0, 3)}) ${phoneNumber.slice(3)}`
+    }
+    return `(${phoneNumber.slice(0, 3)}) ${phoneNumber.slice(3, 6)}-${phoneNumber.slice(6, 10)}`
+  }
 
   const flattenMembers = (members: FormValues["members"]) => {
     if (members.length === 0) return "No members"
@@ -190,9 +201,13 @@ export default function Home() {
                   </Label>
                   <Input
                     id="phone"
-                    placeholder="10 digit number"
+                    placeholder="(555) 000-0000"
                     className="border-white/20 bg-white/30 transition-all focus:bg-white/60"
                     {...form.register("phone")}
+                    onChange={(e) => {
+                      const formatted = formatPhoneNumber(e.target.value)
+                      form.setValue("phone", formatted)
+                    }}
                   />
                   {form.formState.errors.phone && (
                     <p className="mt-1 text-xs text-primary">
@@ -290,9 +305,13 @@ export default function Home() {
                               Phone
                             </Label>
                             <Input
-                              placeholder="Phone"
+                              placeholder="(555) 000-0000"
                               className="h-9 border-white/20 bg-white/40 focus:bg-white/60"
                               {...form.register(`members.${index}.PhoneNumber`)}
+                              onChange={(e) => {
+                                const formatted = formatPhoneNumber(e.target.value)
+                                form.setValue(`members.${index}.PhoneNumber`, formatted)
+                              }}
                             />
                           </div>
                           <div className="space-y-1">
