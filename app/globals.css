@@ -34,7 +34,7 @@
 
 :root {
   /* Church Electronics Event Theme */
-  --background: oklch(0.99 0.005 85); /* Clean White */
+  --background: oklch(0.99 0.005 85 / 10%); /* Clean White with 10% opacity */
   --foreground: oklch(0.25 0.02 255);
 
   --primary: oklch(0.52 0.18 25.5); /* Church Red */
@@ -70,7 +70,7 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground font-sans;
+    @apply bg-transparent text-foreground font-sans;
   }
 }
 
