@@ -125,16 +125,16 @@ export default function Home() {
 
         <form
           onSubmit={form.handleSubmit(onSubmit)}
-          className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl"
+          className="overflow-hidden rounded-xl border border-white/20 bg-white/40 shadow-2xl backdrop-blur-xl"
         >
-          <div className="h-2 w-full bg-blue-900" />
+          <div className="h-2 w-full bg-blue-900/80" />
 
           <div className="space-y-10 p-8">
             {/* Servant Section - 2x2 Grid */}
             <div className="space-y-6">
-              <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2 border-b border-white/20 pb-3">
                 <User className="h-5 w-5 text-primary" />
-                <h2 className="text-xl font-bold text-slate-800">
+                <h2 className="text-xl font-bold text-slate-900">
                   Servant Identification
                 </h2>
               </div>
@@ -143,14 +143,14 @@ export default function Home() {
                 <div className="space-y-2">
                   <Label
                     htmlFor="name"
-                    className="text-sm font-semibold text-slate-700"
+                    className="text-sm font-semibold text-slate-800"
                   >
                     Full Name
                   </Label>
                   <Input
                     id="name"
                     placeholder="Enter Servant Name"
-                    className="border-slate-200 bg-slate-50 transition-all focus:bg-white"
+                    className="border-white/30 bg-white/50 transition-all focus:bg-white/80"
                     {...form.register("name")}
                   />
                   {form.formState.errors.name && (
@@ -163,7 +163,7 @@ export default function Home() {
                 <div className="space-y-2">
                   <Label
                     htmlFor="email"
-                    className="text-sm font-semibold text-slate-700"
+                    className="text-sm font-semibold text-slate-800"
                   >
                     Email Address
                   </Label>
@@ -171,7 +171,7 @@ export default function Home() {
                     id="email"
                     type="email"
                     placeholder="example@church.com"
-                    className="border-slate-200 bg-slate-50 transition-all focus:bg-white"
+                    className="border-white/30 bg-white/50 transition-all focus:bg-white/80"
                     {...form.register("email")}
                   />
                   {form.formState.errors.email && (
@@ -184,14 +184,14 @@ export default function Home() {
                 <div className="space-y-2">
                   <Label
                     htmlFor="phone"
-                    className="text-sm font-semibold text-slate-700"
+                    className="text-sm font-semibold text-slate-800"
                   >
                     Phone Number
                   </Label>
                   <Input
                     id="phone"
                     placeholder="10 digit number"
-                    className="border-slate-200 bg-slate-50 transition-all focus:bg-white"
+                    className="border-white/30 bg-white/50 transition-all focus:bg-white/80"
                     {...form.register("phone")}
                   />
                   {form.formState.errors.phone && (
@@ -204,14 +204,14 @@ export default function Home() {
                 <div className="space-y-2">
                   <Label
                     htmlFor="DOB"
-                    className="text-sm font-semibold text-slate-700"
+                    className="text-sm font-semibold text-slate-800"
                   >
                     Date of Birth
                   </Label>
                   <Input
                     id="DOB"
                     type="date"
-                    className="border-slate-200 bg-slate-50 transition-all focus:bg-white"
+                    className="border-white/30 bg-white/50 transition-all focus:bg-white/80"
                     {...form.register("DOB")}
                   />
                   {form.formState.errors.DOB && (
@@ -225,10 +225,10 @@ export default function Home() {
 
             {/* Members Section */}
             <div className="space-y-6">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center justify-between border-b border-white/20 pb-3">
                 <div className="flex items-center gap-2">
                   <Users className="h-5 w-5 text-primary" />
-                  <h2 className="text-xl font-bold text-slate-800">Members</h2>
+                  <h2 className="text-xl font-bold text-slate-900">Members</h2>
                 </div>
                 <Button
                   type="button"
@@ -239,7 +239,7 @@ export default function Home() {
                     append({ name: "", DOB: "", PhoneNumber: "" })
                   }
                   disabled={fields.length >= 15}
-                  className="border-primary text-primary transition-all hover:bg-primary hover:text-red-700 disabled:border-slate-200"
+                  className="border-primary text-primary transition-all hover:bg-primary hover:text-white disabled:border-slate-200"
                 >
                   <Plus className="mr-1 h-4 w-4" /> Add Member
                 </Button>
@@ -250,9 +250,9 @@ export default function Home() {
                   <motion.div
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
-                    className="rounded-lg border border-dashed border-slate-200 bg-slate-50 py-10 text-center"
+                    className="rounded-lg border border-dashed border-white/30 bg-white/20 py-10 text-center"
                   >
-                    <p className="text-sm text-blue-700">
+                    <p className="text-sm text-blue-900 font-medium">
                       No members added to the unit yet
                     </p>
                   </motion.div>
@@ -264,44 +264,44 @@ export default function Home() {
                         initial={{ opacity: 0, x: -10 }}
                         animate={{ opacity: 1, x: 0 }}
                         exit={{ opacity: 0, scale: 0.95 }}
-                        className="group relative rounded-lg border border-slate-200 bg-white p-5 shadow-sm"
+                        className="group relative rounded-lg border border-white/30 bg-white/30 p-5 shadow-sm backdrop-blur-sm"
                       >
                         <button
                           type="button"
                           onClick={() => remove(index)}
-                          className="absolute top-2 right-2 text-slate-300 transition-colors hover:text-primary"
+                          className="absolute top-2 right-2 text-slate-400 transition-colors hover:text-primary"
                         >
                           <Trash2 className="h-4 w-4" />
                         </button>
 
                         <div className="mt-2 grid grid-cols-1 gap-4 md:grid-cols-3">
                           <div className="space-y-1">
-                            <Label className="text-xs font-bold text-slate-500">
+                            <Label className="text-xs font-bold text-slate-600">
                               Name
                             </Label>
                             <Input
                               placeholder="Name"
-                              className="h-9 border-slate-100 bg-slate-50"
+                              className="h-9 border-white/20 bg-white/40 focus:bg-white/60"
                               {...form.register(`members.${index}.name`)}
                             />
                           </div>
                           <div className="space-y-1">
-                            <Label className="text-xs font-bold text-slate-500">
+                            <Label className="text-xs font-bold text-slate-600">
                               Phone
                             </Label>
                             <Input
                               placeholder="Phone"
-                              className="h-9 border-slate-100 bg-slate-50"
+                              className="h-9 border-white/20 bg-white/40 focus:bg-white/60"
                               {...form.register(`members.${index}.PhoneNumber`)}
                             />
                           </div>
                           <div className="space-y-1">
-                            <Label className="text-xs font-bold text-slate-500">
+                            <Label className="text-xs font-bold text-slate-600">
                               Date of Birth
                             </Label>
                             <Input
                               type="date"
-                              className="h-9 border-slate-100 bg-slate-50"
+                              className="h-9 border-white/20 bg-white/40 focus:bg-white/60"
                               {...form.register(`members.${index}.DOB`)}
                             />
                           </div>
