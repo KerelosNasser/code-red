@@ -24,16 +24,6 @@ export default function RootLayout({
       className={cn("antialiased", fontMono.variable, "font-sans", raleway.variable)}
     >
       <body className="relative min-h-screen">
-        <div className="fixed inset-0 -z-10 overflow-hidden">
-          <Image
-            src="/background.jpg"
-            alt="Background"
-            fill
-            priority
-            className="object-cover object-center"
-            quality={100}
-          />
-        </div>
         <ThemeProvider>{children}</ThemeProvider>
       </body>
     </html>
