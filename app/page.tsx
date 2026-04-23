@@ -108,16 +108,13 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 px-4 py-12">
+    <div className="min-h-screen px-4 py-12">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         className="mx-auto max-w-3xl"
       >
         <div className="mb-10 flex flex-col items-center text-center">
-          <div className="mb-4 rounded-full border border-slate-100 bg-white p-3 shadow-sm">
-            <Shield className="h-8 w-8 text-primary" />
-          </div>
           <h1 className="text-4xl font-bold tracking-tight text-slate-900">
             Da<span className="text-amber-600">Ra</span>
           </h1>
@@ -242,7 +239,7 @@ export default function Home() {
                     append({ name: "", DOB: "", PhoneNumber: "" })
                   }
                   disabled={fields.length >= 15}
-                  className="border-primary text-primary transition-all hover:bg-primary hover:text-white"
+                  className="border-primary text-primary transition-all hover:bg-primary hover:text-red-700 disabled:border-slate-200"
                 >
                   <Plus className="mr-1 h-4 w-4" /> Add Member
                 </Button>

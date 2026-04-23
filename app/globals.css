@@ -34,7 +34,7 @@
 
 :root {
   /* Church Electronics Event Theme */
-  --background: oklch(0.99 0.005 85 / 10%); /* Clean White with 10% opacity */
+  --background: oklch(0.99 0.005 85 / 0%); /* Fully transparent */
   --foreground: oklch(0.25 0.02 255);
 
   --primary: oklch(0.52 0.18 25.5); /* Church Red */
