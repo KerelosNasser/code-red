@@ -114,21 +114,20 @@ export default function Home() {
         animate={{ opacity: 1, y: 0 }}
         className="mx-auto max-w-3xl"
       >
-        <div className="mb-10 flex flex-col items-center text-center">
-          <h1 className="text-4xl font-bold tracking-tight text-slate-900">
-            Da<span className="text-amber-600">Ra</span>
-          </h1>
-          <p className="mt-2 font-medium tracking-widest text-amber-600 uppercase">
-            M&P Didaskalia Advanced Robotics Association
-          </p>
-        </div>
-
         <form
           onSubmit={form.handleSubmit(onSubmit)}
-          className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl"
+          className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl sm:mt-8"
         >
           <div className="h-2 w-full bg-blue-900" />
-
+          <div className="mt-8 mb-2 flex flex-col items-center text-center">
+            <h1 className="text-4xl font-bold tracking-tight text-slate-900">
+              Da<span className="text-amber-600">Ra</span>
+            </h1>
+            <p className="mt-2 font-medium tracking-widest text-amber-600 uppercase">
+              M&P Didaskalia Advanced Robotics Association
+            </p>
+          </div>
+          <div className="ml-27 h-1 w-1/2 bg-slate-400 sm:ml-50" />
           <div className="space-y-10 p-8">
             {/* Servant Section - 2x2 Grid */}
             <div className="space-y-6">
@@ -312,10 +311,11 @@ export default function Home() {
                 )}
               </AnimatePresence>
             </div>
+            <div className="ml-27 h-1 w-1/2 bg-slate-400 sm:ml-50" />
 
             <Button
               type="submit"
-              className="flex h-14 w-full sm:w-auto items-center justify-center gap-2 rounded-lg bg-primary text-lg font-bold text-white shadow-lg shadow-red-100 transition-all hover:bg-primary/90"
+              className="flex h-14 w-full items-center justify-center gap-2 rounded-lg bg-primary text-lg font-bold text-white shadow-lg shadow-red-100 transition-all hover:bg-primary/90 sm:w-auto"
               disabled={isSubmitting}
             >
               {isSubmitting ? (
