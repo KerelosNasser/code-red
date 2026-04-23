@@ -75,6 +75,9 @@
 }
 
 @layer components {
+  .apple-glass {
+    @apply bg-white/20 backdrop-blur-3xl saturate-150 border border-white/30;
+  }
   .gold-border {
     @apply border-t-4 border-secondary;
   }

@@ -125,9 +125,9 @@ export default function Home() {
 
         <form
           onSubmit={form.handleSubmit(onSubmit)}
-          className="overflow-hidden rounded-xl border border-white/20 bg-white/40 shadow-2xl backdrop-blur-xl"
+          className="overflow-hidden rounded-2xl apple-glass shadow-2xl"
         >
-          <div className="h-2 w-full bg-blue-900/80" />
+          <div className="h-2 w-full bg-blue-900/40" />
 
           <div className="space-y-10 p-8">
             {/* Servant Section - 2x2 Grid */}
@@ -264,7 +264,7 @@ export default function Home() {
                         initial={{ opacity: 0, x: -10 }}
                         animate={{ opacity: 1, x: 0 }}
                         exit={{ opacity: 0, scale: 0.95 }}
-                        className="group relative rounded-lg border border-white/30 bg-white/30 p-5 shadow-sm backdrop-blur-sm"
+                        className="group relative rounded-xl apple-glass p-5 shadow-lg"
                       >
                         <button
                           type="button"
