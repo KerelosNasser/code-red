@@ -150,7 +150,7 @@ export default function Home() {
                   <Input
                     id="name"
                     placeholder="Enter Servant Name"
-                    className="border-white/30 bg-white/50 transition-all focus:bg-white/80"
+                    className="border-white/20 bg-white/30 transition-all focus:bg-white/60"
                     {...form.register("name")}
                   />
                   {form.formState.errors.name && (
@@ -171,7 +171,7 @@ export default function Home() {
                     id="email"
                     type="email"
                     placeholder="example@church.com"
-                    className="border-white/30 bg-white/50 transition-all focus:bg-white/80"
+                    className="border-white/20 bg-white/30 transition-all focus:bg-white/60"
                     {...form.register("email")}
                   />
                   {form.formState.errors.email && (
@@ -191,7 +191,7 @@ export default function Home() {
                   <Input
                     id="phone"
                     placeholder="10 digit number"
-                    className="border-white/30 bg-white/50 transition-all focus:bg-white/80"
+                    className="border-white/20 bg-white/30 transition-all focus:bg-white/60"
                     {...form.register("phone")}
                   />
                   {form.formState.errors.phone && (
@@ -211,7 +211,7 @@ export default function Home() {
                   <Input
                     id="DOB"
                     type="date"
-                    className="border-white/30 bg-white/50 transition-all focus:bg-white/80"
+                    className="border-white/20 bg-white/30 transition-all focus:bg-white/60"
                     {...form.register("DOB")}
                   />
                   {form.formState.errors.DOB && (
