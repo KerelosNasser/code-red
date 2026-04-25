@@ -32,6 +32,7 @@ const schema = z.object({
 
 type FormValues = z.infer<typeof schema>
 
+
 export default function Home() {
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -108,15 +109,16 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 px-4 py-12">
-      <motion.div
+    <>
+      <div className="min-h-screen px-4 py-12 relative z-10 bg-white">
+        <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         className="mx-auto max-w-3xl"
       >
         <form
           onSubmit={form.handleSubmit(onSubmit)}
-          className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl sm:mt-8"
+          className="overflow-hidden rounded-xl border border-slate-200 bg-white/80 backdrop-blur-sm shadow-xl sm:mt-8"
         >
           <div className="h-2 w-full bg-blue-900" />
           <div className="mt-8 mb-2 flex flex-col items-center text-center">
@@ -333,5 +335,6 @@ export default function Home() {
         </form>
       </motion.div>
     </div>
+    </>
   )
 }

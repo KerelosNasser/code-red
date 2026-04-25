@@ -3,9 +3,10 @@ import Image from "next/image"
 
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
-import { cn } from "@/lib/utils";
+import { cn } from "@/lib/utils"
+import { m } from "framer-motion"
 
-const raleway = Raleway({subsets:['latin'],variable:'--font-sans'})
+const raleway = Raleway({ subsets: ["latin"], variable: "--font-sans" })
 
 const fontMono = Geist_Mono({
   subsets: ["latin"],
@@ -21,9 +22,14 @@ export default function RootLayout({
     <html
       lang="en"
       suppressHydrationWarning
-      className={cn("antialiased", fontMono.variable, "font-sans", raleway.variable)}
+      className={cn(
+        "antialiased",
+        fontMono.variable,
+        "font-sans",
+        raleway.variable
+      )}
     >
-      <body className="relative min-h-screen">
+      <body className="relative min-h-screen bg-center bg-no-repeat bg-cover" suppressHydrationWarning>
         <ThemeProvider>{children}</ThemeProvider>
       </body>
     </html>
