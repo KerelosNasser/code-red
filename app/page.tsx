@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label"
 import { toast } from "sonner"
 import { motion, AnimatePresence } from "framer-motion"
 import { Plus, Trash2, Send, Users, User, CircleCheck } from "lucide-react"
+import { flattenMembers } from "@/lib/google-form"
 
 const MemberSchema = z.object({
   name: z.string().min(1, "Member name is required"),
@@ -59,59 +60,36 @@ export default function Home() {
     name: "members",
   })
 
-  const flattenMembers = (members: FormValues["members"]) => {
-    if (members.length === 0) return "No members"
-    return members
-      .map(
-        (m, i) =>
-          `M${i + 1}: ${m.name} (DOB: ${m.DOB}, Phone: ${m.PhoneNumber})`
-      )
-      .join(" | ")
-  }
-
   const onSubmit = async (values: FormValues) => {
     setIsSubmitting(true)
     setSubmissionStatus(null)
-    const formData = new FormData()
     const memberSummary = flattenMembers(values.members)
-
-    formData.append(
-      process.env.NEXT_PUBLIC_ENTRY_NAME || "entry.115209315",
-      values.name
-    )
-    formData.append(
-      process.env.NEXT_PUBLIC_ENTRY_EMAIL || "entry.2072288893",
-      values.email
-    )
-    formData.append(
-      process.env.NEXT_PUBLIC_ENTRY_PHONE || "entry.566033448",
-      values.phone
-    )
-    formData.append(
-      process.env.NEXT_PUBLIC_ENTRY_DOB || "entry.956431042",
-      values.DOB
-    )
-    formData.append(
-      process.env.NEXT_PUBLIC_ENTRY_MEMBERS || "entry.165889844",
-      memberSummary
-    )
 
     console.log("Registration form submitted:", {
       ...values,
       membersSummary: memberSummary,
-      formFieldsSent: Object.fromEntries(formData.entries()),
     })
 
     try {
-      await fetch(
-        process.env.NEXT_PUBLIC_GOOGLE_FORM_URL ||
-          "https://docs.google.com/forms/d/e/1FAIpQLSf_dVsQro-lumIz9yZVMnsnKy_uC_lhy2u7QnlaKxbz5WJGbw/formResponse",
-        {
-          method: "POST",
-          mode: "no-cors",
-          body: formData,
-        }
-      )
+      const response = await fetch("/api/register", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(values),
+      })
+      const result = (await response.json()) as {
+        ok: boolean
+        message?: string
+        formFieldsSent?: Record<string, string>
+      }
+
+      console.log("Google Form submission response:", result)
+
+      if (!response.ok || !result.ok) {
+        throw new Error(result.message || "Google Form submission failed.")
+      }
+
       const successMessage = "Registration sent successfully."
       setSubmissionStatus({
         type: "success",
