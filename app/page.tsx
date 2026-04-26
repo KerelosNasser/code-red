@@ -252,7 +252,7 @@ export default function Home() {
                       append({ name: "", DOB: "", PhoneNumber: "" })
                     }
                     disabled={fields.length >= 15}
-                    className="border-primary text-primary transition-all hover:bg-primary hover:text-red-700 disabled:border-slate-200"
+                    className="border-primary text-primary transition-all hover:bg-primary hover:text-white focus:ring-primarydisabled:border-slate-200"
                   >
                     <Plus className="mr-1 h-4 w-4" /> Add Member
                   </Button>
