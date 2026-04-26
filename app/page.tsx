@@ -44,7 +44,6 @@ export default function Home() {
     useState<SubmissionStatus>(null)
 
   const form = useForm<z.infer<typeof schema>>({
-    // @ts-expect-error - Zod version mismatch with hook-form resolver types
     resolver: zodResolver(schema),
     defaultValues: {
       name: "",
