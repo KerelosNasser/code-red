@@ -5,8 +5,9 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-  --font-heading: "Raleway", system-ui, sans-serif;
-  --font-sans: "Raleway", system-ui, sans-serif;
+  --font-heading: var(--font-serif), serif;
+  --font-sans: var(--font-sans), system-ui, sans-serif;
+  --font-serif: var(--font-serif), serif;
   
   --color-ring: var(--ring);
   --color-input: var(--input);
@@ -18,8 +19,8 @@
   --color-muted: var(--muted);
   --color-secondary-foreground: var(--secondary-foreground);
   --color-secondary: var(--secondary);
-  --color-primary-foreground: var(--primary-foreground);
   --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
   --color-popover-foreground: var(--popover-foreground);
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
@@ -33,34 +34,36 @@
 }
 
 :root {
-  /* Church Electronics Event Theme */
+  /* DaRA Brand Theme */
   --background: oklch(0.99 0.005 85 / 0%); /* Fully transparent */
-  --foreground: oklch(0.25 0.02 255);
+  --foreground: oklch(0.2 0.02 240);
 
-  --primary: oklch(0.52 0.18 25.5); /* Church Red */
+  /* Deep Blue: #2E4A7D */
+  --primary: oklch(0.4 0.1 250); 
   --primary-foreground: oklch(0.99 0.005 85);
 
-  --secondary: oklch(0.82 0.16 88.5); /* Gold */
-  --secondary-foreground: oklch(0.25 0.02 255);
+  /* Golden Yellow: #F5A623 */
+  --secondary: oklch(0.75 0.18 75);
+  --secondary-foreground: oklch(0.2 0.02 240);
 
-  --accent: oklch(0.82 0.16 88.5);
-  --accent-foreground: oklch(0.25 0.02 255);
+  --accent: oklch(0.75 0.18 75);
+  --accent-foreground: oklch(0.2 0.02 240);
 
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.25 0.02 255);
+  --card-foreground: oklch(0.2 0.02 240);
 
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.25 0.02 255);
+  --popover-foreground: oklch(0.2 0.02 240);
 
   --muted: oklch(0.96 0.005 85);
-  --muted-foreground: oklch(0.45 0.05 255);
+  --muted-foreground: oklch(0.45 0.05 240);
 
   --destructive: oklch(0.52 0.18 25.5);
   --destructive-foreground: oklch(1 0 0);
 
-  --border: oklch(0.85 0.05 88.5 / 20%);
-  --input: oklch(0.85 0.05 88.5 / 20%);
-  --ring: oklch(0.82 0.16 88.5);
+  --border: oklch(0.9 0.01 240);
+  --input: oklch(0.9 0.01 240);
+  --ring: oklch(0.4 0.1 250);
 
   --radius: 0.5rem;
 }
@@ -71,6 +74,9 @@
   }
   body {
     @apply bg-transparent text-foreground font-sans;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-heading tracking-tight;
   }
 }
 
@@ -85,8 +91,5 @@
     -webkit-backdrop-filter: blur(40px) saturate(200%);
     border: 1px solid rgba(255, 255, 255, 0.2);
     box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.2);
-  }
-  .gold-border {
-    @apply border-t-4 border-secondary;
   }
 }

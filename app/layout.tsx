@@ -1,4 +1,4 @@
-import { Geist_Mono, Raleway } from "next/font/google"
+import { Geist_Mono, Raleway, Crimson_Pro } from "next/font/google"
 
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils"
 import { Navbar } from "@/components/navbar"
 
 const raleway = Raleway({ subsets: ["latin"], variable: "--font-sans" })
+const crimson = Crimson_Pro({ subsets: ["latin"], variable: "--font-serif" })
 
 const fontMono = Geist_Mono({
   subsets: ["latin"],
@@ -26,11 +27,12 @@ export default function RootLayout({
         "antialiased",
         fontMono.variable,
         "font-sans",
-        raleway.variable
+        raleway.variable,
+        crimson.variable
       )}
     >
       <body
-        className="relative min-h-screen bg-cover bg-center bg-no-repeat flex flex-col"
+        className="relative min-h-screen bg-cover bg-center bg-no-repeat flex flex-col font-sans"
         suppressHydrationWarning
       >
         <ThemeProvider>
