@@ -256,12 +256,15 @@ const UserService = {
 
   checkAccess: function(email, phone) {
     const normalizedEmail = String(email || "").trim().toLowerCase();
-    const normalizedPhone = String(phone || "").trim();
+    const inputPhone = String(phone || "").replace(/\D/g, '').replace(/^0+/, '');
     const users = SheetUtils.readAll("Users");
     const user = users.find(function(record) {
       const emailMatches =
         String(record.email || "").trim().toLowerCase() === normalizedEmail;
-      const phoneMatches = String(record.phone || "").trim() === normalizedPhone;
+      const recordPhone = String(record.phone || "").replace(/\D/g, '').replace(/^0+/, '');
+      const phoneMatches = 
+        recordPhone === inputPhone || 
+        (recordPhone.length > 6 && inputPhone.length > 6 && (recordPhone.endsWith(inputPhone) || inputPhone.endsWith(recordPhone)));
       return emailMatches && phoneMatches;
     });
 
@@ -272,10 +275,7 @@ const UserService = {
     const submissions = SheetUtils.readAll("Submissions");
     const latestSubmission = submissions
       .filter(function(submission) {
-        return (
-          submission.user_id === user.id &&
-          String(submission.status || "").toLowerCase() === "completed"
-        );
+        return submission.user_id === user.id;
       })
       .sort(function(a, b) {
         return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
@@ -284,9 +284,9 @@ const UserService = {
     return {
       success: true,
       data: {
-        hasAccess: Boolean(latestSubmission),
+        hasAccess: true,
         user: user,
-        submission: latestSubmission || null
+        submission: latestSubmission || { id: user.id }
       }
     };
   }

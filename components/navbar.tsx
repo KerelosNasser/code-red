@@ -4,6 +4,7 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useEffect, useState } from "react"
 import { getStoredAccess } from "@/lib/access-storage"
+import { Button } from "./ui/button"
 
 export function Navbar() {
   const pathname = usePathname()
@@ -26,8 +27,6 @@ export function Navbar() {
     }
   }, [])
 
-  if (!hasAccess) return null
-
   return (
     <nav className="sticky top-0 z-50 w-full border-b border-slate-200 bg-[#2E4A7D] text-white shadow-sm">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
@@ -43,18 +42,27 @@ export function Navbar() {
           >
             About
           </Link>
-          <Link 
-            href="/store" 
-            className={`text-sm font-medium transition-colors hover:text-[#F5A623] ${pathname === "/store" ? "text-[#F5A623]" : "text-white/90"}`}
-          >
-            Store
-          </Link>
-          <Link 
-            href="/courses" 
-            className={`text-sm font-medium transition-colors hover:text-[#F5A623] ${pathname === "/courses" ? "text-[#F5A623]" : "text-white/90"}`}
-          >
-            Courses
-          </Link>
+          {hasAccess && (
+            <>
+              <Link 
+                href="/store" 
+                className={`text-sm font-medium transition-colors hover:text-[#F5A623] ${pathname === "/store" ? "text-[#F5A623]" : "text-white/90"}`}
+              >
+                Store
+              </Link>
+              <Link 
+                href="/courses" 
+                className={`text-sm font-medium transition-colors hover:text-[#F5A623] ${pathname === "/courses" ? "text-[#F5A623]" : "text-white/90"}`}
+              >
+                Courses
+              </Link>
+            </>
+          )}
+          {!hasAccess && pathname !== "/register" && (
+            <Button asChild size="sm" className="bg-[#F5A623] hover:bg-[#F5A623]/90 text-white font-bold">
+              <Link href="/register">Login</Link>
+            </Button>
+          )}
         </div>
       </div>
     </nav>

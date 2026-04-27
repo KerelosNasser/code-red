@@ -80,3 +80,9 @@ export async function getCoursesFromGas() {
   const response = await fetch(url)
   return parseGasResponse(response, "Failed to fetch courses")
 }
+
+export async function getProductsFromGas() {
+  const url = `${GAS_URL}?action=getProducts`
+  const response = await fetch(url)
+  return parseGasResponse(response, "Failed to fetch products")
+}
