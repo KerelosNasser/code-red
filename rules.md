@@ -41,8 +41,11 @@ id | submission_id | name | dob | phone
 Courses
 id | title | description
 
+Sections
+id | course_id | title | order
+
 Lessons
-id | course_id | title | drive_file_id | order
+id | course_id | section_id | title | description | drive_file_id | resource_url | order
 
 Products
 id | title | description | price | image_url

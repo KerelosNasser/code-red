@@ -10,7 +10,17 @@ const expectedSchema = {
   Submissions: ["id", "user_id", "type", "payload", "status", "created_at"],
   Members: ["id", "submission_id", "name", "dob", "phone"],
   Courses: ["id", "title", "description"],
-  Lessons: ["id", "course_id", "title", "drive_file_id", "order"],
+  Sections: ["id", "course_id", "title", "order"],
+  Lessons: [
+    "id",
+    "course_id",
+    "section_id",
+    "title",
+    "description",
+    "drive_file_id",
+    "resource_url",
+    "order",
+  ],
   Products: ["id", "title", "description", "price", "image_url"],
 }
 

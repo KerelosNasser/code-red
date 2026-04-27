@@ -19,7 +19,8 @@ const SHEET_SCHEMAS = {
   Submissions: ["id", "user_id", "type", "payload", "status", "created_at"],
   Members: ["id", "submission_id", "name", "dob", "phone"],
   Courses: ["id", "title", "description"],
-  Lessons: ["id", "course_id", "title", "drive_file_id", "order"],
+  Sections: ["id", "course_id", "title", "order"],
+  Lessons: ["id", "course_id", "section_id", "title", "description", "drive_file_id", "resource_url", "order"],
   Products: ["id", "title", "description", "price", "image_url"]
 };
 
@@ -151,24 +152,58 @@ const CourseService = {
     if (cached) return JSON.parse(cached);
 
     const courses = SheetUtils.readAll("Courses");
+    const sections = SheetUtils.readAll("Sections");
     const lessons = SheetUtils.readAll("Lessons");
 
-    const lessonMap = lessons.reduce(function(acc, lesson) {
-      if (!acc[lesson.course_id]) acc[lesson.course_id] = [];
-      acc[lesson.course_id].push({
-        ...lesson,
-        url: "https://drive.google.com/uc?id=" + lesson.drive_file_id,
-        preview_url: "https://drive.google.com/file/d/" + lesson.drive_file_id + "/view"
+    // Group sections by course
+    const sectionMap = sections.reduce(function(acc, section) {
+      if (!acc[section.course_id]) acc[section.course_id] = [];
+      acc[section.course_id].push({
+        ...section,
+        lessons: []
       });
       return acc;
     }, {});
 
+    // Sort sections by order
+    Object.keys(sectionMap).forEach(function(courseId) {
+      sectionMap[courseId].sort(function(a, b) {
+        return Number(a.order || 0) - Number(b.order || 0);
+      });
+    });
+
+    // Group lessons by section (and track course_id if section_id is missing)
+    lessons.forEach(function(lesson) {
+      const driveId = lesson.drive_file_id;
+      const lessonData = {
+        ...lesson,
+        url: "https://drive.google.com/uc?id=" + driveId,
+        preview_url: "https://drive.google.com/file/d/" + driveId + "/view"
+      };
+
+      if (lesson.section_id) {
+        // Find section across all courses (or optimize by course if needed)
+        const courseSections = sectionMap[lesson.course_id] || [];
+        const section = courseSections.find(function(s) { return s.id === lesson.section_id; });
+        if (section) {
+          section.lessons.push(lessonData);
+        }
+      }
+    });
+
+    // Sort lessons in each section
+    Object.keys(sectionMap).forEach(function(courseId) {
+      sectionMap[courseId].forEach(function(section) {
+        section.lessons.sort(function(a, b) {
+          return Number(a.order || 0) - Number(b.order || 0);
+        });
+      });
+    });
+
     const data = courses.map(function(course) {
       return {
         ...course,
-        lessons: (lessonMap[course.id] || []).sort(function(a, b) {
-          return Number(a.order || 0) - Number(b.order || 0);
-        })
+        sections: sectionMap[course.id] || []
       };
     });
 
