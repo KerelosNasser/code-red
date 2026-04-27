@@ -58,7 +58,7 @@ function generateSubmissionId() {
   return `PAY-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
 }
 
-export function generateWhatsAppLink(data: WhatsAppSubmissionData) {
+function generateWhatsAppLink(data: WhatsAppSubmissionData) {
   const message = `New Payment Submission
 Name: ${data.name}
 Phone: ${data.phone}
@@ -172,7 +172,7 @@ export default function Home() {
           animate={{ opacity: 1, y: 0 }}
           className="mx-auto max-w-2xl overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl sm:mt-8"
         >
-          <div className="h-2 w-full bg-[#2E4A7D]" />
+          <div className="h-2 w-full bg-blue-600" />
           <div className="p-10 text-center space-y-6">
             <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100">
               <CircleCheck className="h-8 w-8 text-emerald-600" />
@@ -238,7 +238,7 @@ export default function Home() {
                   <div className="space-y-2">
                     <Label
                       htmlFor="name"
-                      className="text-sm font-semibold text-slate-700"
+                      className="text-sm font-semibold text-primary"
                     >
                       Full Name
                     </Label>
@@ -249,7 +249,7 @@ export default function Home() {
                       {...form.register("name")}
                     />
                     {form.formState.errors.name && (
-                      <p className="mt-1 text-xs text-primary">
+                      <p className="mt-1 text-xs text-red-600">
                         {form.formState.errors.name.message}
                       </p>
                     )}
@@ -270,7 +270,7 @@ export default function Home() {
                       {...form.register("email")}
                     />
                     {form.formState.errors.email && (
-                      <p className="mt-1 text-xs text-primary">
+                      <p className="mt-1 text-xs text-red-600">
                         {form.formState.errors.email.message}
                       </p>
                     )}
@@ -290,7 +290,7 @@ export default function Home() {
                       {...form.register("phone")}
                     />
                     {form.formState.errors.phone && (
-                      <p className="mt-1 text-xs text-primary">
+                      <p className="mt-1 text-xs text-red-600">
                         {form.formState.errors.phone.message}
                       </p>
                     )}
@@ -310,7 +310,7 @@ export default function Home() {
                       {...form.register("paymentReference")}
                     />
                     {form.formState.errors.paymentReference && (
-                      <p className="mt-1 text-xs text-primary">
+                      <p className="mt-1 text-xs text-red-600">
                         {form.formState.errors.paymentReference.message}
                       </p>
                     )}
@@ -330,7 +330,7 @@ export default function Home() {
                       {...form.register("DOB")}
                     />
                     {form.formState.errors.DOB && (
-                      <p className="mt-1 text-xs text-primary">
+                      <p className="mt-1 text-xs text-red-600">
                         {form.formState.errors.DOB.message}
                       </p>
                     )}
@@ -356,7 +356,7 @@ export default function Home() {
                       append({ name: "", DOB: "", PhoneNumber: "" })
                     }
                     disabled={fields.length >= 15}
-                    className="focus:ring-primary disabled:border-slate-200 border-primary text-primary transition-all hover:bg-primary hover:text-white"
+                    className="focus:ring-primary disabled:border-slate-200 border-amber-600 text-red-600 transition-all hover:bg-red-800 hover:text-white"
                   >
                     <Plus className="mr-1 h-4 w-4" /> Add Member
                   </Button>
@@ -452,7 +452,7 @@ export default function Home() {
 
               <Button
                 type="submit"
-                className="flex h-14 w-full gap-2 rounded-lg bg-primary text-lg font-bold text-white shadow-lg shadow-red-100 transition-all hover:bg-primary/90 sm:w-full"
+                className="flex h-14 w-full gap-2 rounded-lg bg-red-700 text-lg font-bold text-white shadow-lg shadow-red-100 transition-all hover:bg-red-800/90 sm:w-full"
                 disabled={isSubmitting || hasSubmitted}
               >
                 {isSubmitting ? (
