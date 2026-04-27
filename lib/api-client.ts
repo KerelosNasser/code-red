@@ -1,4 +1,5 @@
 export const GAS_URL = process.env.NEXT_PUBLIC_GAS_URL || "";
+export const GAS_SECRET = process.env.NEXT_PUBLIC_GAS_SECRET_KEY || "";
 
 export interface Member {
   name: string;
@@ -22,10 +23,11 @@ export async function submitToGas(payload: SubmissionPayload) {
   const response = await fetch(GAS_URL, {
     method: "POST",
     headers: {
-      "Content-Type": "text/plain;charset=utf-8", // GAS expects plain text for POST to avoid pre-flight issues in some cases
+      "Content-Type": "text/plain;charset=utf-8",
     },
     body: JSON.stringify({
       action: "submitForm",
+      token: GAS_SECRET,
       payload
     }),
   });

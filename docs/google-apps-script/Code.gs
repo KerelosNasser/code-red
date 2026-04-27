@@ -24,6 +24,9 @@ function doGet(e) {
       case 'getLessons':
         return jsonResponse(LessonService.getByCourse(e.parameter.course_id));
       case 'clearCache':
+        if (CONFIG.SECRET_KEY && e.parameter.token !== CONFIG.SECRET_KEY) {
+          return jsonResponse({ error: "Unauthorized" }, 401);
+        }
         CacheService.getScriptCache().removeAll(['courses', 'products']);
         return jsonResponse({ success: true, message: "Cache cleared" });
       default:
@@ -40,6 +43,12 @@ function doGet(e) {
 function doPost(e) {
   try {
     const data = JSON.parse(e.postData.contents);
+    
+    // Validate Secret Key if configured
+    if (CONFIG.SECRET_KEY && data.token !== CONFIG.SECRET_KEY) {
+      return jsonResponse({ error: "Unauthorized" }, 401);
+    }
+
     const action = data.action;
 
     switch (action) {
