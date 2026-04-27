@@ -10,7 +10,8 @@
 
 const CONFIG = {
   SECRET: "DARA-ELKEDESEEN",
-  CACHE_TTL: 600
+  CACHE_TTL: 600,
+  SHEET_ID: "PASTE_SPREADSHEET_ID_HERE"
 };
 
 const SHEET_SCHEMAS = {
@@ -80,8 +81,24 @@ function doPost(e) {
   }
 }
 
+function getSpreadsheet() {
+  const activeSpreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+  if (activeSpreadsheet) return activeSpreadsheet;
+
+  if (
+    !CONFIG.SHEET_ID ||
+    CONFIG.SHEET_ID === "PASTE_SPREADSHEET_ID_HERE"
+  ) {
+    throw new Error(
+      "Spreadsheet is not configured. Set CONFIG.SHEET_ID to your Google Sheet ID."
+    );
+  }
+
+  return SpreadsheetApp.openById(CONFIG.SHEET_ID);
+}
+
 function setupDatabaseSchema() {
-  const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+  const spreadsheet = getSpreadsheet();
   const created = [];
   const updated = [];
 
@@ -282,7 +299,7 @@ const LessonService = {
 
 const SheetUtils = {
   getSheet: function(sheetName) {
-    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(sheetName);
+    const sheet = getSpreadsheet().getSheetByName(sheetName);
     if (!sheet) throw new Error("Missing sheet: " + sheetName);
     return sheet;
   },

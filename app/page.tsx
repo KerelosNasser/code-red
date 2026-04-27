@@ -25,6 +25,10 @@ import {
 const ADMIN_WHATSAPP_PHONE =
   process.env.NEXT_PUBLIC_ADMIN_WHATSAPP_PHONE || "15551234567"
 
+function getErrorMessage(error: unknown, fallbackMessage: string) {
+  return error instanceof Error ? error.message : fallbackMessage
+}
+
 type SubmissionStatus = {
   type: "success" | "error"
   message: string
@@ -67,12 +71,15 @@ export default function Home() {
       } catch (error) {
         if (!isMounted) return
 
+        const errorMessage = getErrorMessage(
+          error,
+          "Could not verify your registration. Please submit again."
+        )
         clearStoredAccess()
         setSubmissionStatus({
           type: "error",
-          message: "Could not verify your registration. Please submit again.",
+          message: errorMessage,
         })
-        console.error(error)
       } finally {
         if (isMounted) setIsCheckingAccess(false)
       }
@@ -144,13 +151,15 @@ export default function Home() {
       })
       toast.success("Submission sent. You can now access all features.")
     } catch (error) {
-      const errorMessage = "Submission failed. Please try again."
+      const errorMessage = getErrorMessage(
+        error,
+        "Submission failed. Please try again."
+      )
       setSubmissionStatus({
         type: "error",
         message: errorMessage,
       })
       toast.error(errorMessage)
-      console.error(error)
       setIsSubmitting(false)
     }
   }

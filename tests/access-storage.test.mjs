@@ -22,3 +22,8 @@ test("home page verifies stored access with the backend before showing success",
   assert.match(page, /getStoredAccess/)
   assert.match(page, /clearStoredAccess/)
 })
+
+test("home page shows the actual backend error message", () => {
+  assert.match(page, /error instanceof Error/)
+  assert.match(page, /error\.message/)
+})

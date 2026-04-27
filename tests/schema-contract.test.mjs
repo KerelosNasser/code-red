@@ -32,6 +32,13 @@ test("Code.gs can initialize and validate sheets before writes", () => {
   assert.match(codeGs, /ensureDatabaseSchema\(\)/)
 })
 
+test("Code.gs resolves the spreadsheet through a helper instead of chaining getActiveSpreadsheet", () => {
+  assert.match(codeGs, /SHEET_ID:/)
+  assert.match(codeGs, /function getSpreadsheet\(\)/)
+  assert.match(codeGs, /SpreadsheetApp\.openById\(CONFIG\.SHEET_ID\)/)
+  assert.doesNotMatch(codeGs, /SpreadsheetApp\.getActiveSpreadsheet\(\)\.getSheetByName/)
+})
+
 test("Code.gs exposes a user check endpoint backed by Users and Submissions", () => {
   assert.match(codeGs, /case "checkUser":/)
   assert.match(codeGs, /UserService\.checkAccess/)
@@ -48,4 +55,15 @@ test("frontend API client can check whether the stored user exists", () => {
   assert.match(apiClient, /export async function checkUserAccess/)
   assert.match(apiClient, /action=checkUser/)
   assert.match(apiClient, /encodeURIComponent\(email\)/)
+})
+
+test("frontend API client explains stale Apps Script deployments", () => {
+  assert.match(apiClient, /Google Apps Script deployment is out of date/)
+  assert.match(apiClient, /Invalid action/)
+})
+
+test("frontend submit payload stays compatible with older Apps Script deployments", () => {
+  assert.match(apiClient, /payload,/)
+  assert.match(apiClient, /\.\.\.payload/)
+  assert.match(apiClient, /data: payload/)
 })

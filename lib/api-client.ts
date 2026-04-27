@@ -30,7 +30,15 @@ async function parseGasResponse(response: Response, fallbackMessage: string) {
   const result = await response.json()
 
   if (result.success === false) {
-    throw new Error(result.error || fallbackMessage)
+    const errorMessage = result.error || fallbackMessage
+
+    if (errorMessage === "Invalid action") {
+      throw new Error(
+        "Google Apps Script deployment is out of date. Deploy the latest docs/google-apps-script/Code.gs, then run setupDatabase."
+      )
+    }
+
+    throw new Error(errorMessage)
   }
 
   return result
@@ -48,15 +56,18 @@ export async function submitToGas(payload: SubmissionPayload) {
       action: "submitForm",
       token: GAS_SECRET,
       payload,
+      data: payload,
+      ...payload,
     }),
   })
 
   return parseGasResponse(response, "Submission failed")
 }
 
-export async function checkUserAccess({ email, phone }: AccessCheckPayload) {
+export async function checkUserAccess(payload: AccessCheckPayload) {
   if (!GAS_URL) throw new Error("GAS_URL is not configured")
 
+  const { email, phone } = payload
   const url = `${GAS_URL}?action=checkUser&token=${encodeURIComponent(
     GAS_SECRET
   )}&email=${encodeURIComponent(email)}&phone=${encodeURIComponent(phone)}`

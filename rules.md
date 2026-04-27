@@ -1,254 +1,188 @@
-# DaRA Project Rules
+# DaRA Project Handoff Rules
 
-## 1. Core Identity
+This file is the context handoff for future AI/dev work. Read it before changing the app.
 
-* Brand Name: DaRA (Didaskalia Advanced Robotics Association)
-* Theme: Professional, educational, tech + robotics
-* Tone: Clean, structured, modern — NOT playful or generic
+## Project Summary
 
----
+DaRA is a Next.js app backed by Google Apps Script and Google Sheets.
 
-## 2. Visual Rules
+- Frontend: Next.js App Router in `app/`
+- Backend API: Google Apps Script in `docs/google-apps-script/Code.gs`
+- Database: Google Sheets tabs created/managed by `Code.gs`
+- Main registration UI: `app/page.tsx`
+- API client: `lib/api-client.ts`
+- Local access state: `lib/access-storage.ts`
+- Registration schema/helpers: `lib/registration.ts`
 
-### Colors
+Do not bring back the old direct Google Form submit flow. The app writes to Apps Script, not Google Forms.
 
-* Primary: Deep Blue (#2E4A7D or similar)
-* Accent: Golden Yellow (#F5A623 or similar)
-* Background: Light / off-white
-* Text: Dark gray / near black
+## Source Of Truth
 
-### Usage
+The visual source of truth is `app/page.tsx`. Preserve its DaRA registration design unless the user explicitly asks for a redesign.
 
-* Blue = structure, headers, main UI
-* Yellow = highlights, CTA, important actions
-* Avoid random colors ❌
+The backend source of truth is `docs/google-apps-script/Code.gs`. The cloud Apps Script must be updated manually from this file after backend changes.
 
----
+The Sheets schema source of truth is `SHEET_SCHEMAS` in `Code.gs`. If columns change, update tests and every read/write path in the same change.
 
-### Typography
+## Exact Sheets Schema
 
-* Headings: Serif (similar to logo style)
-* Body: Clean sans-serif (Inter / system font)
+Create these sheets exactly, with these headers in row 1:
 
----
+```text
+Users
+id | name | email | phone | role | created_at
 
-### Layout Style
+Submissions
+id | user_id | type | payload | status | created_at
 
-* Grid-based
-* Clear spacing
-* No clutter
-* Strong hierarchy
+Members
+id | submission_id | name | dob | phone
 
----
+Courses
+id | title | description
 
-### UI Feel
+Lessons
+id | course_id | title | drive_file_id | order
 
-* Should feel like:
+Products
+id | title | description | price | image_url
+```
 
-  * dashboard
-  * learning platform
-  * robotics system
+`Code.gs` has `setupDatabaseSchema()` and `ensureDatabaseSchema()` to create/fix these sheets.
 
-NOT:
+To initialize the cloud spreadsheet after deploying Apps Script:
 
-* social media app ❌
-* gaming UI ❌
-* overly rounded playful UI ❌
+```text
+<GAS_WEB_APP_URL>?action=setupDatabase&token=DARA-ELKEDESEEN
+```
 
----
+## Apps Script API Contract
 
-## 3. Components Rules
-
-### Cards
-
-* Slight border or shadow
-* Clean edges (not too rounded)
-* Consistent padding
-
-### Buttons
-
-* Primary → Blue background
-* Secondary → Outline or subtle
-* CTA → Yellow
-
----
-
-### Forms
-
-* Minimal
-* Clear labels
-* No unnecessary fields
-* Fast to fill
-
----
-
-## 4. Backend Rules (IMPORTANT)
-
-### Google Sheets = Database
-
-* Each sheet = table
-* No schema changes without updating code
-* No duplicate data across sheets
-
----
-
-### Data Rules
-
-* Always use:
-
-  * `id` (UUID)
-  * `created_at`
-  * `status` when needed
-
----
-
-### API Rules
-
-* Always return:
+All API responses should be JSON:
 
 ```json
-{ "success": true, "data": ... }
+{ "success": true, "data": {} }
 ```
 
-* Never expose raw Drive logic to frontend
+Errors should be:
 
----
-
-## 5. Performance Rules
-
-* Always cache GET requests
-* Never loop Sheets inside loops
-* Always batch read/write
-* Avoid unnecessary API calls
-
----
-
-## 6. Architecture Rules
-
-* Keep separation:
-
-  * UI (Next.js)
-  * API (Apps Script)
-  * Data (Sheets)
-* No mixing logic between layers
-
----
-
-## 7. Learning Platform Rules
-
-* Courses are public (visible)
-* Lessons:
-
-  * `is_free` OR locked
-* Access controlled via:
-
-  * Enrollments
-
----
-
-## 8. Store Rules
-
-* Products must have:
-
-  * title
-  * image
-  * price
-* Keep display simple (no overdesign)
-
----
-
-## 9. Code Quality Rules
-
-* No overengineering
-* Clear function names
-* Modular logic
-* Avoid duplication
-
----
-
-## 10. MVP Mindset
-
-* Build simple → then improve
-* Do NOT optimize prematurely
-* Focus on:
-
-  * working system
-  * clean structure
-  * maintainability
-
----
-
-## 11. Security (Basic)
-
-* Use secret key for POST
-* Do not trust frontend input
-* Validate all required fields
-
----
-
-## 12. Future Scalability
-
-This system is:
-
-* MVP-friendly ✅
-* Not enterprise ❌
-
-Design everything so it can be replaced later:
-
-* Sheets → DB
-* Apps Script → real backend
-
----
-
-## Final Principle
-
-**Clarity > Complexity**
-**Structure > Features**
-**Consistency > Creativity**
-
----
-
-# 🔥 Extra Docs
-
-## 📁 Suggested Project Structure
-
-```
-/app
-/lib
-  api.ts
-/components
-/styles
+```json
+{ "success": false, "error": "Message" }
 ```
 
----
+Current actions:
 
-## 📦 API Layer Example
+- `POST submitForm`: creates/fetches a user, creates a submission, inserts members, marks submission `completed`.
+- `GET checkUser`: verifies a browser-stored user has a matching completed submission.
+- `GET getCourses`: returns courses with lessons.
+- `GET getLessons`: returns lessons for one course.
+- `GET getProducts`: returns products.
+- `GET setupDatabase`: creates/fixes the database sheets.
+- `GET clearCache`: clears cached course/product reads.
+
+Protected actions must include the token. The current secret is `DARA-ELKEDESEEN`; keep frontend env `NEXT_PUBLIC_GAS_SECRET_KEY` aligned with `CONFIG.SECRET`.
+
+## Access Rules
+
+Do not trust `localStorage` by itself.
+
+The old `dara_has_submitted=true` flag is stale and must not grant access. Current access is stored under `dara_access` with:
 
 ```ts
-export async function submitForm(data) {
-  const res = await fetch(process.env.NEXT_PUBLIC_API_URL, {
-    method: "POST",
-    body: JSON.stringify({
-      action: "submitForm",
-      ...data
-    })
-  });
-
-  return res.json();
+{
+  email: string
+  phone: string
+  submissionId: string
 }
 ```
 
----
+On page load, `app/page.tsx` calls `checkUserAccess()` to confirm the user exists in Sheets and has a `completed` submission. If the backend cannot confirm it, clear local access and show the registration form again.
 
-## 🧠 Dev Mindset
+Navbar access must use `getStoredAccess()` from `lib/access-storage.ts`, not direct localStorage checks.
 
-* Build like:
+## Frontend Rules
 
-  * system first
-  * UI second
+Keep files small and focused.
 
-* Every feature should answer:
+- Put API fetch logic in `lib/api-client.ts`.
+- Put localStorage access logic in `lib/access-storage.ts`.
+- Put registration validation/helper logic in `lib/registration.ts`.
+- Keep `app/page.tsx` mainly for rendering, form state, and page-level flow.
+- Use existing UI components from `components/ui/`.
 
-  * where is it stored?
-  * how is it fetched?
-  * how is it controlled?
+Do not add broad abstractions or new libraries unless they solve a real current problem.
+
+## UI And Brand
+
+Brand:
+
+- Name: DaRA
+- Full name: M&P Didaskalia Advanced Robotics Association
+- Feel: clean, structured, professional, educational robotics
+
+Colors:
+
+- Primary blue: `#2E4A7D`
+- Accent yellow: `#F5A623`
+- Current registration CTA uses red styling from the user-approved `app/page.tsx`; do not change it casually.
+- Background should be light/off-white.
+
+Assets live in `public/`. Prefer existing DaRA assets before introducing new imagery.
+
+## Data Flow For Registration
+
+1. User fills the registration form in `app/page.tsx`.
+2. Zod validation runs from `registrationSchema`.
+3. `submitToGas()` posts `{ action: "submitForm", token, payload }`.
+4. Apps Script writes:
+   - `Users`: one user per email
+   - `Submissions`: full JSON payload and status
+   - `Members`: normalized member rows
+5. Frontend stores `dara_access` only after successful GAS response.
+6. Frontend dispatches `dara_access_granted` so navbar updates.
+
+If data is not appearing in Sheets, check in this order:
+
+1. Is `.env` `NEXT_PUBLIC_GAS_URL` pointing at the current Web App deployment URL?
+2. Is `.env` `NEXT_PUBLIC_GAS_SECRET_KEY` equal to `CONFIG.SECRET` in cloud `Code.gs`?
+3. Was the updated `Code.gs` pasted/deployed to the cloud Apps Script?
+4. Was `setupDatabase` run against the target spreadsheet?
+5. Does `submitToGas()` receive `{ success: true, data: { submissionId } }`?
+
+## Testing And Verification
+
+Before claiming work is done, run:
+
+```bash
+node --test tests/schema-contract.test.mjs tests/access-storage.test.mjs
+pnpm typecheck
+pnpm lint
+pnpm build
+```
+
+For local manual testing, the app usually runs at:
+
+```text
+http://127.0.0.1:3000
+```
+
+If port 3000 is already taken, inspect the existing server before starting another one.
+
+## Current Test Purpose
+
+- `tests/schema-contract.test.mjs`: guards the exact Sheets schema, GAS setup/check endpoints, and API error handling.
+- `tests/access-storage.test.mjs`: guards browser access storage and backend verification behavior.
+
+If you change schema, access flow, or API contract, update these tests first and watch them fail before implementing.
+
+## Git And Workspace Notes
+
+There may be user-created assets in `public/` that are untracked. Do not delete or revert them.
+
+Do not revert user changes unless explicitly asked.
+
+Keep changes scoped. If a file is getting large, extract a small helper instead of piling more logic into it.
+
+## Final Principle
+
+Working system first. Exact schema. Verified backend. UI stays aligned with `app/page.tsx`.
