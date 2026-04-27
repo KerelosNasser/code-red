@@ -73,3 +73,34 @@ export const MOCK_COURSES = [
     ]
   }
 ];
+
+export const MOCK_PRODUCTS = [
+  {
+    id: "kit-001",
+    title: "Starter Robotics Kit",
+    description: "Everything you need to build your first autonomous rover, including chassis, motors, and basic sensors.",
+    price: 49.99,
+    image_url: ""
+  },
+  {
+    id: "kit-002",
+    title: "Advanced Sensor Array",
+    description: "A collection of high-precision sensors including LIDAR, ultrasonic, and IMU for complex navigation.",
+    price: 129.50,
+    image_url: ""
+  },
+  {
+    id: "kit-003",
+    title: "AI Vision Module",
+    description: "Specialized camera system with integrated neural network processor for real-time object detection.",
+    price: 85.00,
+    image_url: ""
+  },
+  {
+    id: "kit-004",
+    title: "High-Torque Servo Pack",
+    description: "Professional grade servos with metal gears for heavy-duty robotic arms and industrial applications.",
+    price: 35.00,
+    image_url: ""
+  }
+];

@@ -202,7 +202,7 @@ export default function CourseLandingPage() {
         {/* SIDEBAR */}
         <div className="space-y-6 lg:sticky lg:top-20 justify-center self-center items-center">
           {/* Requirements */}
-          <div className="rounded-2xl border border-slate-200 bg-amber-700 p-6 shadow-sm">
+          <div className="rounded-2xl border border-slate-200 bg-yellow-600 p-6 shadow-sm">
             <h3 className="mb-4 text-2xl font-bold text-white">Requirements</h3>
             <Separator className="mb-4 bg-white" />
             <ol className="space-y-2 text-m text-white">
@@ -225,7 +225,7 @@ export default function CourseLandingPage() {
             onClick={() =>
               router.push(hasAccess ? `/courses/${id}/learn` : "/register")
             }
-            className="h-12 w-full bg-red-700 rounded-2xl py-2 text-white shadow-md transition hover:bg-amber-800 hover:shadow-lg"
+            className="h-12 w-full bg-red-700 rounded-2xl text-lg py-2 font-bold text-white shadow-md transition hover:bg-amber-800 hover:shadow-lg"
           >
             Enroll Now
           </Button>

@@ -43,6 +43,11 @@ function doGet(e) {
           return json({ success: false, error: "Unauthorized" });
         }
         return json(UserService.checkAccess(parameters.email, parameters.phone));
+      case "getUserAssets":
+        if (parameters.token !== CONFIG.SECRET) {
+          return json({ success: false, error: "Unauthorized" });
+        }
+        return json(UserService.getUserAssets(parameters.email, parameters.phone));
       case "setupDatabase":
         if (parameters.token !== CONFIG.SECRET) {
           return json({ success: false, error: "Unauthorized" });
@@ -324,6 +329,44 @@ const UserService = {
         submission: latestSubmission || { id: user.id }
       }
     };
+  },
+
+  getUserAssets: function(email, phone) {
+    const access = this.checkAccess(email, phone);
+    if (!access.success || !access.data.hasAccess) {
+      return { success: true, data: [] };
+    }
+
+    const userId = access.data.user.id;
+    const submissions = SheetUtils.readAll("Submissions");
+    const purchases = submissions.filter(function(s) {
+      return s.user_id === userId && s.type === "purchase" && s.status === "completed";
+    });
+
+    const productIds = [];
+    purchases.forEach(function(p) {
+      try {
+        const payload = JSON.parse(p.payload);
+        if (payload.productIds && Array.isArray(payload.productIds)) {
+          payload.productIds.forEach(function(id) {
+            if (productIds.indexOf(id) === -1) productIds.push(id);
+          });
+        }
+      } catch (e) {
+        // Ignore malformed payloads
+      }
+    });
+
+    if (productIds.length === 0) {
+      return { success: true, data: [] };
+    }
+
+    const allProducts = SheetUtils.readAll("Products");
+    const userProducts = allProducts.filter(function(p) {
+      return productIds.indexOf(String(p.id)) !== -1;
+    });
+
+    return { success: true, data: userProducts };
   }
 };
 

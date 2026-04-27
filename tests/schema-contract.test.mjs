@@ -84,3 +84,7 @@ test("frontend submit payload stays compatible with older Apps Script deployment
   assert.match(apiClient, /\.\.\.payload/)
   assert.match(apiClient, /data: payload/)
 })
+
+test("Code.gs exposes a getUserAssets action", () => {
+  assert.match(codeGs, /case "getUserAssets":/)
+})

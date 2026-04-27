@@ -5,12 +5,17 @@ import { usePathname } from "next/navigation"
 import { useEffect, useState } from "react"
 import { getStoredAccess } from "@/lib/access-storage"
 import { Button } from "./ui/button"
+import { ShoppingCart } from "lucide-react"
+import { useCartStore } from "@/lib/store/cart"
 
 export function Navbar() {
   const pathname = usePathname()
   const [hasAccess, setHasAccess] = useState(false)
+  const cartItemsCount = useCartStore((state) => state.items.length)
+  const [isClient, setIsClient] = useState(false)
 
   useEffect(() => {
+    setTimeout(() => setIsClient(true), 0)
     const checkAccess = () => {
       setHasAccess(Boolean(getStoredAccess()))
     }
@@ -33,9 +38,8 @@ export function Navbar() {
     after:duration-300 hover:after:w-full`
 
   return (
-    <nav className="sticky top-0 z-50 w-full  bg-blue-950/90 backdrop-blur-md shadow-sm">
-      <div className="mx-auto flex h-20 max-w-7xl items-center justify-around">
-        
+    <nav className="sticky top-0 z-50 w-full bg-blue-950/90 backdrop-blur-md shadow-sm">
+      <div className="mx-auto flex h-20 max-w-7xl items-center justify-around px-4">
         {/* Logo */}
         <Link href="/" className="flex items-center">
           <img
@@ -51,23 +55,38 @@ export function Navbar() {
           <Link href="/about" className={linkStyle("/about")}>
             About
           </Link>
+          <Link href="/store" className={linkStyle("/store")}>
+            Store
+          </Link>
 
           {hasAccess && (
             <>
-              <Link href="/store" className={linkStyle("/store")}>
-                Store
-              </Link>
               <Link href="/courses" className={linkStyle("/courses")}>
                 Courses
               </Link>
+              <Link href="/assets" className={linkStyle("/assets")}>
+                Assets
+              </Link>
             </>
           )}
+
+          <Link
+            href="/cart"
+            className="relative text-white transition-colors hover:text-[#F5A623]"
+          >
+            <ShoppingCart className="h-6 w-6" />
+            {isClient && cartItemsCount > 0 && (
+              <span className="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-red-600 text-[10px] font-bold text-white ring-2 ring-blue-950">
+                {cartItemsCount}
+              </span>
+            )}
+          </Link>
 
           {!hasAccess && pathname !== "/register" && (
             <Button
               asChild
               size="sm"
-              className="bg-[#F5A623] hover:bg-[#F5A623]/90 text-white font-semibold px-5 py-2 rounded-xl shadow-md hover:shadow-lg transition-all duration-300"
+              className="rounded-xl bg-[#F5A623] px-5 py-2 font-semibold text-white shadow-md transition-all duration-300 hover:bg-[#F5A623]/90 hover:shadow-lg"
             >
               <Link href="/register">Login</Link>
             </Button>

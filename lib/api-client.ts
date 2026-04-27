@@ -86,3 +86,30 @@ export async function getProductsFromGas() {
   const response = await fetch(url)
   return parseGasResponse(response, "Failed to fetch products")
 }
+
+export async function getUserAssetsFromGas(payload: AccessCheckPayload) {
+  if (!GAS_URL) throw new Error("GAS_URL is not configured")
+
+  const { email, phone } = payload
+  const url = `${GAS_URL}?action=getUserAssets&token=${encodeURIComponent(
+    GAS_SECRET
+  )}&email=${encodeURIComponent(email)}&phone=${encodeURIComponent(phone)}`
+  const response = await fetch(url)
+  return parseGasResponse(response, "Failed to fetch user assets")
+}
+
+export async function submitPurchase(
+  payload: { productIds: string[] },
+  accessPayload: AccessCheckPayload
+) {
+  return submitToGas({
+    name: "",
+    email: accessPayload.email,
+    phone: accessPayload.phone,
+    paymentReference: "simulated",
+    DOB: "",
+    members: [],
+    type: "purchase",
+    ...payload,
+  })
+}
