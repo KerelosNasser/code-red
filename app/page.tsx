@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { toast } from "sonner"
 import { motion, AnimatePresence } from "framer-motion"
-import { Plus, Trash2, Send, Users, User, CircleCheck } from "lucide-react"
+import { Plus, Trash2, Send, Users, User, CircleCheck, LogIn } from "lucide-react"
 import { checkUserAccess, submitToGas } from "@/lib/api-client"
 import {
   clearStoredAccess,
@@ -19,11 +19,12 @@ import {
   generateSubmissionId,
   generateWhatsAppLink,
   registrationSchema,
+  loginSchema,
   type RegistrationFormValues,
 } from "@/lib/registration"
 
 const ADMIN_WHATSAPP_PHONE =
-  process.env.NEXT_PUBLIC_ADMIN_WHATSAPP_PHONE || "15551234567"
+  process.env.NEXT_PUBLIC_ADMIN_WHATSAPP_PHONE || "01211730727"
 
 function getErrorMessage(error: unknown, fallbackMessage: string) {
   return error instanceof Error ? error.message : fallbackMessage
@@ -41,6 +42,7 @@ export default function Home() {
   const [whatsAppUrl, setWhatsAppUrl] = useState("")
   const [submissionStatus, setSubmissionStatus] =
     useState<SubmissionStatus>(null)
+  const [authMode, setAuthMode] = useState<"signup" | "login">("signup")
 
   useEffect(() => {
     let isMounted = true
@@ -93,7 +95,11 @@ export default function Home() {
   }, [])
 
   const form = useForm<RegistrationFormValues>({
-    resolver: zodResolver(registrationSchema),
+    resolver: async (data, context, options) => {
+      return zodResolver(
+        authMode === "signup" ? registrationSchema : loginSchema
+      )(data, context, options)
+    },
     defaultValues: {
       name: "",
       email: "",
@@ -115,6 +121,49 @@ export default function Home() {
     setIsSubmitting(true)
     setSubmissionStatus(null)
     setWhatsAppUrl("")
+
+    if (authMode === "login") {
+      try {
+        const result = await checkUserAccess({
+          email: values.email,
+          phone: values.phone,
+        })
+
+        if (result.data?.hasAccess) {
+          storeAccess({
+            email: values.email,
+            phone: values.phone,
+            submissionId: result.data.submission?.id || "",
+          })
+          window.dispatchEvent(new Event("dara_access_granted"))
+          setHasSubmitted(true)
+          setSubmissionStatus({
+            type: "success",
+            message: "Login successful!",
+          })
+          toast.success("Welcome back. You can now access all features.")
+        } else {
+          setSubmissionStatus({
+            type: "error",
+            message: "We could not find your registration in the database.",
+          })
+          toast.error("Login failed. Registration not found.")
+        }
+      } catch (error) {
+        const errorMessage = getErrorMessage(
+          error,
+          "Login failed. Please try again."
+        )
+        setSubmissionStatus({
+          type: "error",
+          message: errorMessage,
+        })
+        toast.error(errorMessage)
+      } finally {
+        setIsSubmitting(false)
+      }
+      return
+    }
 
     const uniqueId = generateSubmissionId()
     const timestamp = new Date().toISOString()
@@ -197,16 +246,17 @@ export default function Home() {
             </div>
             <div className="space-y-2">
               <h2 className="text-3xl font-bold text-slate-900">
-                Registration Complete
+                {authMode === "login" ? "Login Complete" : "Registration Complete"}
               </h2>
               <p className="text-slate-600">
-                Thank you for registering. You now have access to the DaRa
-                platform.
+                {authMode === "login"
+                  ? "Welcome back! You have successfully logged in."
+                  : "Thank you for registering. You now have access to the DaRa platform."}
               </p>
             </div>
 
             <div className="flex flex-col gap-4 border-t border-slate-100 pt-6 sm:flex-row sm:justify-center">
-              {whatsAppUrl && (
+              {whatsAppUrl && authMode === "signup" && (
                 <Button
                   asChild
                   className="h-12 bg-emerald-600 px-8 font-medium text-white hover:bg-emerald-700"
@@ -264,7 +314,44 @@ export default function Home() {
                 M&P Didaskalia Advanced Robotics Association
               </p>
             </div>
-            <div className="ml-27 h-1 w-1/2 bg-slate-400 sm:ml-50" />
+
+            {/* Mode Switcher Buttons */}
+            <div className="flex justify-center gap-4 mt-6 mb-4">
+              <Button
+                type="button"
+                variant={authMode === "signup" ? "default" : "outline"}
+                className={
+                  authMode === "signup"
+                    ? "bg-[#2E4A7D] text-white hover:bg-[#1f3358] w-32"
+                    : "text-slate-600 border-slate-300 hover:bg-slate-50 w-32"
+                }
+                onClick={() => {
+                  setAuthMode("signup")
+                  form.clearErrors()
+                  setSubmissionStatus(null)
+                }}
+              >
+                Sign Up
+              </Button>
+              <Button
+                type="button"
+                variant={authMode === "login" ? "default" : "outline"}
+                className={
+                  authMode === "login"
+                    ? "bg-[#2E4A7D] text-white hover:bg-[#1f3358] w-32"
+                    : "text-slate-600 border-slate-300 hover:bg-slate-50 w-32"
+                }
+                onClick={() => {
+                  setAuthMode("login")
+                  form.clearErrors()
+                  setSubmissionStatus(null)
+                }}
+              >
+                Login
+              </Button>
+            </div>
+
+            <div className="mx-auto h-1 w-1/2 bg-slate-400" />
             <div className="space-y-10 p-8">
               {/* Servant Section - 2x2 Grid */}
               <div className="space-y-6">
@@ -276,25 +363,27 @@ export default function Home() {
                 </div>
 
                 <div className="grid grid-cols-1 gap-x-8 gap-y-6 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label
-                      htmlFor="name"
-                      className="text-sm font-semibold text-primary"
-                    >
-                      Full Name
-                    </Label>
-                    <Input
-                      id="name"
-                      placeholder="Enter Servant Name"
-                      className="border-slate-200 bg-slate-50 transition-all focus:bg-white"
-                      {...form.register("name")}
-                    />
-                    {form.formState.errors.name && (
-                      <p className="mt-1 text-xs text-red-600">
-                        {form.formState.errors.name.message}
-                      </p>
-                    )}
-                  </div>
+                  {authMode === "signup" && (
+                    <div className="space-y-2">
+                      <Label
+                        htmlFor="name"
+                        className="text-sm font-semibold text-primary"
+                      >
+                        Full Name
+                      </Label>
+                      <Input
+                        id="name"
+                        placeholder="Enter Servant Name"
+                        className="border-slate-200 bg-slate-50 transition-all focus:bg-white"
+                        {...form.register("name")}
+                      />
+                      {form.formState.errors.name && (
+                        <p className="mt-1 text-xs text-red-600">
+                          {form.formState.errors.name.message}
+                        </p>
+                      )}
+                    </div>
+                  )}
 
                   <div className="space-y-2">
                     <Label
@@ -337,133 +426,139 @@ export default function Home() {
                     )}
                   </div>
 
-                  <div className="space-y-2">
-                    <Label
-                      htmlFor="paymentReference"
-                      className="text-sm font-semibold text-slate-700"
-                    >
-                      Payment Reference
-                    </Label>
-                    <Input
-                      id="paymentReference"
-                      placeholder="Enter InstaPay reference"
-                      className="border-slate-200 bg-slate-50 transition-all focus:bg-white"
-                      {...form.register("paymentReference")}
-                    />
-                    {form.formState.errors.paymentReference && (
-                      <p className="mt-1 text-xs text-red-600">
-                        {form.formState.errors.paymentReference.message}
-                      </p>
-                    )}
-                  </div>
+                  {authMode === "signup" && (
+                    <>
+                      <div className="space-y-2">
+                        <Label
+                          htmlFor="paymentReference"
+                          className="text-sm font-semibold text-slate-700"
+                        >
+                          Payment Reference
+                        </Label>
+                        <Input
+                          id="paymentReference"
+                          placeholder="Enter InstaPay reference"
+                          className="border-slate-200 bg-slate-50 transition-all focus:bg-white"
+                          {...form.register("paymentReference")}
+                        />
+                        {form.formState.errors.paymentReference && (
+                          <p className="mt-1 text-xs text-red-600">
+                            {form.formState.errors.paymentReference.message}
+                          </p>
+                        )}
+                      </div>
 
-                  <div className="space-y-2">
-                    <Label
-                      htmlFor="DOB"
-                      className="text-sm font-semibold text-slate-700"
-                    >
-                      Date of Birth
-                    </Label>
-                    <Input
-                      id="DOB"
-                      type="date"
-                      className="border-slate-200 bg-slate-50 transition-all focus:bg-white"
-                      {...form.register("DOB")}
-                    />
-                    {form.formState.errors.DOB && (
-                      <p className="mt-1 text-xs text-red-600">
-                        {form.formState.errors.DOB.message}
-                      </p>
-                    )}
-                  </div>
+                      <div className="space-y-2">
+                        <Label
+                          htmlFor="DOB"
+                          className="text-sm font-semibold text-slate-700"
+                        >
+                          Date of Birth
+                        </Label>
+                        <Input
+                          id="DOB"
+                          type="date"
+                          className="border-slate-200 bg-slate-50 transition-all focus:bg-white"
+                          {...form.register("DOB")}
+                        />
+                        {form.formState.errors.DOB && (
+                          <p className="mt-1 text-xs text-red-600">
+                            {form.formState.errors.DOB.message}
+                          </p>
+                        )}
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
 
               {/* Members Section */}
-              <div className="space-y-6">
-                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                  <div className="flex items-center gap-2">
-                    <Users className="h-5 w-5 text-primary" />
-                    <h2 className="text-xl font-bold text-slate-800">
-                      Members
-                    </h2>
-                  </div>
-                  <Button
-                    type="button"
-                    // variant="outline"
-                    size="sm"
-                    onClick={() =>
-                      fields.length < 15 &&
-                      append({ name: "", DOB: "", PhoneNumber: "" })
-                    }
-                    disabled={fields.length >= 15}
-                    className="border-amber-600 bg-white text-red-600 hover:bg-red-800 hover:text-white "
-                  >
-                    <Plus className="mr-1 h-4 w-4" /> Add Member
-                  </Button>
-                </div>
-
-                <AnimatePresence>
-                  {fields.length === 0 ? (
-                    <motion.div
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      className="rounded-lg border border-amber-800 bg-slate-50 py-10 text-center"
-                    >
-                      <p className="text-sm text-red-700">
-                        No members added to the unit yet
-                      </p>
-                    </motion.div>
-                  ) : (
-                    <div className="space-y-4">
-                      {fields.map((field, index) => (
-                        <motion.div
-                          key={field.id}
-                          initial={{ opacity: 0, x: -10 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          exit={{ opacity: 0, scale: 0.95 }}
-                          className="group relative rounded-lg border border-slate-200 bg-white p-5 shadow-sm"
-                        >
-                          <button
-                            type="button"
-                            onClick={() => remove(index)}
-                            className="absolute top-2 right-2 text-slate-300 transition-colors hover:text-primary"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-
-                          <div className="mt-2 grid grid-cols-1 gap-4 md:grid-cols-3">
-                            <div className="space-y-1">
-                              <Input
-                                placeholder="Name"
-                                className="h-9 border-slate-100 bg-slate-50"
-                                {...form.register(`members.${index}.name`)}
-                              />
-                            </div>
-                            <div className="space-y-1">
-                              <Input
-                                placeholder="Phone"
-                                className="h-9 border-slate-100 bg-slate-50"
-                                {...form.register(
-                                  `members.${index}.PhoneNumber`
-                                )}
-                              />
-                            </div>
-                            <div className="space-y-1">
-                              <Input
-                                type="date"
-                                className="h-9 border-slate-100 bg-slate-50"
-                                {...form.register(`members.${index}.DOB`)}
-                              />
-                            </div>
-                          </div>
-                        </motion.div>
-                      ))}
+              {authMode === "signup" && (
+                <div className="space-y-6">
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                    <div className="flex items-center gap-2">
+                      <Users className="h-5 w-5 text-primary" />
+                      <h2 className="text-xl font-bold text-slate-800">
+                        Members
+                      </h2>
                     </div>
-                  )}
-                </AnimatePresence>
-              </div>
-              <div className="ml-27 h-1 w-1/2 bg-slate-400 sm:ml-50" />
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() =>
+                        fields.length < 15 &&
+                        append({ name: "", DOB: "", PhoneNumber: "" })
+                      }
+                      disabled={fields.length >= 15}
+                      className="border-amber-600 bg-white text-red-600 hover:bg-red-800 hover:text-white "
+                    >
+                      <Plus className="mr-1 h-4 w-4" /> Add Member
+                    </Button>
+                  </div>
+
+                  <AnimatePresence>
+                    {fields.length === 0 ? (
+                      <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        className="rounded-lg border border-amber-800 bg-slate-50 py-10 text-center"
+                      >
+                        <p className="text-sm text-red-700">
+                          No members added to the unit yet
+                        </p>
+                      </motion.div>
+                    ) : (
+                      <div className="space-y-4">
+                        {fields.map((field, index) => (
+                          <motion.div
+                            key={field.id}
+                            initial={{ opacity: 0, x: -10 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            exit={{ opacity: 0, scale: 0.95 }}
+                            className="group relative rounded-lg border border-slate-200 bg-white p-5 shadow-sm"
+                          >
+                            <button
+                              type="button"
+                              onClick={() => remove(index)}
+                              className="absolute top-2 right-2 text-slate-300 transition-colors hover:text-primary"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+
+                            <div className="mt-2 grid grid-cols-1 gap-4 md:grid-cols-3">
+                              <div className="space-y-1">
+                                <Input
+                                  placeholder="Name"
+                                  className="h-9 border-slate-100 bg-slate-50"
+                                  {...form.register(`members.${index}.name`)}
+                                />
+                              </div>
+                              <div className="space-y-1">
+                                <Input
+                                  placeholder="Phone"
+                                  className="h-9 border-slate-100 bg-slate-50"
+                                  {...form.register(
+                                    `members.${index}.PhoneNumber`
+                                  )}
+                                />
+                              </div>
+                              <div className="space-y-1">
+                                <Input
+                                  type="date"
+                                  className="h-9 border-slate-100 bg-slate-50"
+                                  {...form.register(`members.${index}.DOB`)}
+                                />
+                              </div>
+                            </div>
+                          </motion.div>
+                        ))}
+                      </div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              )}
+
+              <div className="mx-auto h-1 w-1/2 bg-slate-400" />
 
               {submissionStatus && (
                 <div
@@ -481,7 +576,7 @@ export default function Home() {
                 </div>
               )}
 
-              {whatsAppUrl && (
+              {whatsAppUrl && authMode === "signup" && (
                 <Button
                   asChild
                   variant="outline"
@@ -499,11 +594,12 @@ export default function Home() {
                 {isSubmitting ? (
                   <>
                     <span className="h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-                    Submitting...
+                    {authMode === "login" ? "Logging in..." : "Submitting..."}
                   </>
                 ) : (
                   <>
-                    <Send className="h-5 w-5" /> Submit
+                    {authMode === "login" ? <LogIn className="h-5 w-5" /> : <Send className="h-5 w-5" />}
+                    {authMode === "login" ? "Login" : "Submit"}
                   </>
                 )}
               </Button>

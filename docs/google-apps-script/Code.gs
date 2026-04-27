@@ -11,7 +11,7 @@
 const CONFIG = {
   SECRET: "DARA-ELKEDESEEN",
   CACHE_TTL: 600,
-  SHEET_ID: "PASTE_SPREADSHEET_ID_HERE"
+  SHEET_ID: "1pqNurCRK4T9G7XoJGk--xiQSg9vWL-dcXjTKeckCVf8"
 };
 
 const SHEET_SCHEMAS = {
@@ -24,7 +24,8 @@ const SHEET_SCHEMAS = {
 };
 
 function doGet(e) {
-  const action = e.parameter.action;
+  const parameters = getRequestParameters(e);
+  const action = parameters.action;
 
   try {
     ensureDatabaseSchema();
@@ -35,19 +36,19 @@ function doGet(e) {
       case "getProducts":
         return json(ProductService.getAll());
       case "getLessons":
-        return json(LessonService.getByCourse(e.parameter.course_id));
+        return json(LessonService.getByCourse(parameters.course_id));
       case "checkUser":
-        if (e.parameter.token !== CONFIG.SECRET) {
+        if (parameters.token !== CONFIG.SECRET) {
           return json({ success: false, error: "Unauthorized" });
         }
-        return json(UserService.checkAccess(e.parameter.email, e.parameter.phone));
+        return json(UserService.checkAccess(parameters.email, parameters.phone));
       case "setupDatabase":
-        if (e.parameter.token !== CONFIG.SECRET) {
+        if (parameters.token !== CONFIG.SECRET) {
           return json({ success: false, error: "Unauthorized" });
         }
         return json(setupDatabaseSchema());
       case "clearCache":
-        if (e.parameter.token !== CONFIG.SECRET) {
+        if (parameters.token !== CONFIG.SECRET) {
           return json({ success: false, error: "Unauthorized" });
         }
         CacheService.getScriptCache().removeAll(["courses", "products"]);
@@ -62,7 +63,7 @@ function doGet(e) {
 
 function doPost(e) {
   try {
-    const body = JSON.parse(e.postData.contents);
+    const body = getPostBody(e);
 
     if (body.token !== CONFIG.SECRET) {
       return json({ success: false, error: "Unauthorized" });
@@ -81,14 +82,23 @@ function doPost(e) {
   }
 }
 
+function getRequestParameters(e) {
+  return e && e.parameter ? e.parameter : {};
+}
+
+function getPostBody(e) {
+  if (!e || !e.postData || !e.postData.contents) {
+    throw new Error("Missing POST body");
+  }
+
+  return JSON.parse(e.postData.contents);
+}
+
 function getSpreadsheet() {
   const activeSpreadsheet = SpreadsheetApp.getActiveSpreadsheet();
   if (activeSpreadsheet) return activeSpreadsheet;
 
-  if (
-    !CONFIG.SHEET_ID ||
-    CONFIG.SHEET_ID === "PASTE_SPREADSHEET_ID_HERE"
-  ) {
+  if (!CONFIG.SHEET_ID) {
     throw new Error(
       "Spreadsheet is not configured. Set CONFIG.SHEET_ID to your Google Sheet ID."
     );

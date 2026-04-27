@@ -32,6 +32,13 @@ test("Code.gs can initialize and validate sheets before writes", () => {
   assert.match(codeGs, /ensureDatabaseSchema\(\)/)
 })
 
+test("Code.gs guards missing Apps Script event objects for manual runs", () => {
+  assert.match(codeGs, /function getRequestParameters\(e\)/)
+  assert.match(codeGs, /return e && e\.parameter \? e\.parameter : \{\}/)
+  assert.match(codeGs, /function getPostBody\(e\)/)
+  assert.match(codeGs, /Missing POST body/)
+})
+
 test("Code.gs resolves the spreadsheet through a helper instead of chaining getActiveSpreadsheet", () => {
   assert.match(codeGs, /SHEET_ID:/)
   assert.match(codeGs, /function getSpreadsheet\(\)/)

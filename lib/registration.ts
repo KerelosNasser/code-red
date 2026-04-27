@@ -21,7 +21,16 @@ export const registrationSchema = z.object({
   members: z.array(memberSchema).max(15, "Maximum 15 members allowed"),
 })
 
+export const loginSchema = z.object({
+  email: z.string().email("Invalid email address"),
+  phone: z
+    .string()
+    .min(11, "Phone number must be 11 digits")
+    .max(11, "Phone number must be 11 digits"),
+})
+
 export type RegistrationFormValues = z.infer<typeof registrationSchema>
+export type LoginFormValues = z.infer<typeof loginSchema>
 
 export type WhatsAppSubmissionData = {
   name: string
