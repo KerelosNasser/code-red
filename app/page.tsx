@@ -9,7 +9,10 @@ import { Label } from "@/components/ui/label"
 import { toast } from "sonner"
 import { motion, AnimatePresence } from "framer-motion"
 import { Plus, Trash2, Send, Users, User, CircleCheck } from "lucide-react"
-import { flattenMembers } from "@/lib/google-form"
+import { submitToGas } from "@/lib/api-client"
+
+const ADMIN_WHATSAPP_PHONE =
+  process.env.NEXT_PUBLIC_ADMIN_WHATSAPP_PHONE || "15551234567"
 
 const MemberSchema = z.object({
   name: z.string().min(1, "Member name is required"),
@@ -27,6 +30,7 @@ const schema = z.object({
     .string()
     .min(11, "Phone number must be 9 digits")
     .max(11, "Phone number must be 11 digits"),
+  paymentReference: z.string().min(1, "Payment reference is required"),
   DOB: z.string().min(1, "Date of birth is required"),
   members: z.array(MemberSchema).max(15, "Maximum 15 members allowed"),
 })
@@ -38,8 +42,41 @@ type SubmissionStatus = {
   message: string
 } | null
 
+type WhatsAppSubmissionData = {
+  name: string
+  phone: string
+  paymentReference: string
+  uniqueId: string
+  timestamp: string
+}
+
+function generateSubmissionId() {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return crypto.randomUUID()
+  }
+
+  return `PAY-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+}
+
+export function generateWhatsAppLink(data: WhatsAppSubmissionData) {
+  const message = `New Payment Submission
+Name: ${data.name}
+Phone: ${data.phone}
+Payment Ref: ${data.paymentReference}
+ID: ${data.uniqueId}
+Time: ${data.timestamp}
+
+I have completed payment via InstaPay. Please verify.`
+
+  return `https://wa.me/${ADMIN_WHATSAPP_PHONE}?text=${encodeURIComponent(
+    message
+  )}`
+}
+
 export default function Home() {
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [hasSubmitted, setHasSubmitted] = useState(false)
+  const [whatsAppUrl, setWhatsAppUrl] = useState("")
   const [submissionStatus, setSubmissionStatus] =
     useState<SubmissionStatus>(null)
 
@@ -49,6 +86,7 @@ export default function Home() {
       name: "",
       email: "",
       phone: "",
+      paymentReference: "",
       DOB: "",
       members: [],
     },
@@ -60,42 +98,41 @@ export default function Home() {
   })
 
   const onSubmit = async (values: FormValues) => {
+    if (isSubmitting || hasSubmitted) return
+
     setIsSubmitting(true)
     setSubmissionStatus(null)
-    const memberSummary = flattenMembers(values.members)
+    setWhatsAppUrl("")
 
-    console.log("Registration form submitted:", {
-      ...values,
-      membersSummary: memberSummary,
-    })
+    const uniqueId = generateSubmissionId()
+    const timestamp = new Date().toISOString()
 
     try {
-      const response = await fetch("/api/register", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(values),
+      await submitToGas({
+        ...values,
+        type: "team_registration",
       })
-      const result = (await response.json()) as {
-        ok: boolean
-        message?: string
-        formFieldsSent?: Record<string, string>
-      }
 
-      console.log("Google Form submission response:", result)
+      const redirectUrl = generateWhatsAppLink({
+        name: values.name,
+        phone: values.phone,
+        paymentReference: values.paymentReference,
+        uniqueId,
+        timestamp,
+      })
+      setHasSubmitted(true)
+      setWhatsAppUrl(redirectUrl)
 
-      if (!response.ok || !result.ok) {
-        throw new Error(result.message || "Google Form submission failed.")
-      }
-
-      const successMessage = "Registration sent successfully."
+      const successMessage = "Redirecting to WhatsApp..."
       setSubmissionStatus({
         type: "success",
         message: successMessage,
       })
-      toast.success(successMessage)
-      form.reset()
+      toast.success("Submission sent. Opening WhatsApp...")
+
+      window.setTimeout(() => {
+        window.location.href = redirectUrl
+      }, 500)
     } catch (error) {
       const errorMessage = "Submission failed. Please try again."
       setSubmissionStatus({
@@ -104,7 +141,6 @@ export default function Home() {
       })
       toast.error(errorMessage)
       console.error(error)
-    } finally {
       setIsSubmitting(false)
     }
   }
@@ -214,6 +250,26 @@ export default function Home() {
 
                   <div className="space-y-2">
                     <Label
+                      htmlFor="paymentReference"
+                      className="text-sm font-semibold text-slate-700"
+                    >
+                      Payment Reference
+                    </Label>
+                    <Input
+                      id="paymentReference"
+                      placeholder="Enter InstaPay reference"
+                      className="border-slate-200 bg-slate-50 transition-all focus:bg-white"
+                      {...form.register("paymentReference")}
+                    />
+                    {form.formState.errors.paymentReference && (
+                      <p className="mt-1 text-xs text-primary">
+                        {form.formState.errors.paymentReference.message}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label
                       htmlFor="DOB"
                       className="text-sm font-semibold text-slate-700"
                     >
@@ -252,7 +308,7 @@ export default function Home() {
                       append({ name: "", DOB: "", PhoneNumber: "" })
                     }
                     disabled={fields.length >= 15}
-                    className="border-primary text-primary transition-all hover:bg-primary hover:text-white focus:ring-primarydisabled:border-slate-200"
+                    className="focus:ring-primarydisabled:border-slate-200 border-primary text-primary transition-all hover:bg-primary hover:text-white"
                   >
                     <Plus className="mr-1 h-4 w-4" /> Add Member
                   </Button>
@@ -336,15 +392,25 @@ export default function Home() {
                 </div>
               )}
 
+              {whatsAppUrl && (
+                <Button
+                  asChild
+                  variant="outline"
+                  className="h-12 w-full border-emerald-300 text-emerald-800 hover:bg-emerald-50"
+                >
+                  <a href={whatsAppUrl}>Open WhatsApp</a>
+                </Button>
+              )}
+
               <Button
                 type="submit"
-                className="flex h-14 w-full items-center justify-center gap-2 rounded-lg bg-primary text-lg font-bold text-white shadow-lg shadow-red-100 transition-all hover:bg-primary/90 sm:w-auto"
-                disabled={isSubmitting}
+                className="flex h-14 w-full gap-2 rounded-lg bg-primary text-lg font-bold text-white shadow-lg shadow-red-100 transition-all hover:bg-primary/90 sm:w-full"
+                disabled={isSubmitting || hasSubmitted}
               >
                 {isSubmitting ? (
                   <>
                     <span className="h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-                    Processing...
+                    Redirecting to WhatsApp...
                   </>
                 ) : (
                   <>
