@@ -19,8 +19,8 @@ const MemberSchema = z.object({
   DOB: z.string().min(1, "Member date of birth is required"),
   PhoneNumber: z
     .string()
-    .min(11, "Phone number must be 10 digits")
-    .max(11, "Phone number must be 10 digits"),
+    .min(11, "Phone number must be 11 digits")
+    .max(11, "Phone number must be 11 digits"),
 })
 
 const schema = z.object({
@@ -28,7 +28,7 @@ const schema = z.object({
   email: z.string().email("Invalid email address"),
   phone: z
     .string()
-    .min(11, "Phone number must be 9 digits")
+    .min(11, "Phone number must be 11 digits")
     .max(11, "Phone number must be 11 digits"),
   paymentReference: z.string().min(1, "Payment reference is required"),
   DOB: z.string().min(1, "Date of birth is required"),
