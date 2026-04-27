@@ -43,7 +43,7 @@ export default function CoursesPage() {
       
       <div className="mt-12 p-8 rounded-xl bg-[#2E4A7D]/5 border border-[#2E4A7D]/10 flex flex-col md:flex-row items-center justify-between gap-6">
         <div className="space-y-1">
-          <h4 className="text-lg font-bold text-[#2E4A7D]">Can't find what you're looking for?</h4>
+          <h4 className="text-lg font-bold text-[#2E4A7D]">Can&apos;t find what you&apos;re looking for?</h4>
           <p className="text-slate-600">We are constantly adding new curriculum to the platform.</p>
         </div>
         <button className="px-6 py-2 border-2 border-[#2E4A7D] text-[#2E4A7D] font-bold rounded-lg hover:bg-[#2E4A7D] hover:text-white transition-all whitespace-nowrap">

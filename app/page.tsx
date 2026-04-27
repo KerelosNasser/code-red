@@ -84,6 +84,7 @@ export default function Home() {
     // Check if already submitted on mount
     const submitted = localStorage.getItem("dara_has_submitted") === "true"
     if (submitted) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setHasSubmitted(true)
     }
   }, [])
