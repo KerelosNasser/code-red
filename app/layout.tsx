@@ -4,6 +4,7 @@ import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
 import { Toaster } from "@/components/ui/sonner"
 import { cn } from "@/lib/utils"
+import { Navbar } from "@/components/navbar"
 
 const raleway = Raleway({ subsets: ["latin"], variable: "--font-sans" })
 
@@ -29,11 +30,12 @@ export default function RootLayout({
       )}
     >
       <body
-        className="relative min-h-screen bg-cover bg-center bg-no-repeat"
+        className="relative min-h-screen bg-cover bg-center bg-no-repeat flex flex-col"
         suppressHydrationWarning
       >
         <ThemeProvider>
-          {children}
+          <Navbar />
+          <main className="flex-1">{children}</main>
           <Toaster richColors position="top-center" />
         </ThemeProvider>
       </body>
