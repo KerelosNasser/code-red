@@ -1,230 +1,346 @@
 /**
  * DaRA (Didaskalia Advanced Robotics Association)
  * Google Apps Script Backend API
- * 
- * Rules:
- * - Each sheet = table
- * - id (UUID), created_at, status
- * - Return { success: true, data: ... }
- * - Cache GET requests
- * - Batch read/write
- * - Secret key for POST
+ *
+ * Deployment:
+ * - Deploy as Web App
+ * - Execute as: Me
+ * - Access: Anyone
  */
 
 const CONFIG = {
   SECRET: "DARA-ELKEDESEEN",
-  CACHE_TTL: 600, // 10 minutes
-  SHEET_ID: SpreadsheetApp.getActiveSpreadsheet().getId()
+  CACHE_TTL: 600
 };
 
-/**
- * ROUTER: doGet
- */
+const SHEET_SCHEMAS = {
+  Users: ["id", "name", "email", "phone", "role", "created_at"],
+  Submissions: ["id", "user_id", "type", "payload", "status", "created_at"],
+  Members: ["id", "submission_id", "name", "dob", "phone"],
+  Courses: ["id", "title", "description"],
+  Lessons: ["id", "course_id", "title", "drive_file_id", "order"],
+  Products: ["id", "title", "description", "price", "image_url"]
+};
+
 function doGet(e) {
   const action = e.parameter.action;
-  
+
   try {
+    ensureDatabaseSchema();
+
     switch (action) {
-      case 'getCourses':
+      case "getCourses":
         return json(CourseService.getAllWithLessons());
-      case 'getProducts':
+      case "getProducts":
         return json(ProductService.getAll());
-      case 'getLessons':
+      case "getLessons":
         return json(LessonService.getByCourse(e.parameter.course_id));
-      case 'clearCache':
-        if (e.parameter.token !== CONFIG.SECRET) return json({ success: false, error: "Unauthorized" }, 401);
-        CacheService.getScriptCache().removeAll(['courses', 'products']);
-        return json({ success: true, message: "Cache cleared" });
+      case "checkUser":
+        if (e.parameter.token !== CONFIG.SECRET) {
+          return json({ success: false, error: "Unauthorized" });
+        }
+        return json(UserService.checkAccess(e.parameter.email, e.parameter.phone));
+      case "setupDatabase":
+        if (e.parameter.token !== CONFIG.SECRET) {
+          return json({ success: false, error: "Unauthorized" });
+        }
+        return json(setupDatabaseSchema());
+      case "clearCache":
+        if (e.parameter.token !== CONFIG.SECRET) {
+          return json({ success: false, error: "Unauthorized" });
+        }
+        CacheService.getScriptCache().removeAll(["courses", "products"]);
+        return json({ success: true, data: { message: "Cache cleared" } });
       default:
-        return json({ success: false, error: "Invalid action" }, 400);
+        return json({ success: false, error: "Invalid action" });
     }
   } catch (error) {
-    return json({ success: false, error: error.message }, 500);
+    return json({ success: false, error: error.message });
   }
 }
 
-/**
- * ROUTER: doPost
- */
 function doPost(e) {
   try {
     const body = JSON.parse(e.postData.contents);
-    
-    // Security check
+
     if (body.token !== CONFIG.SECRET) {
-      return json({ success: false, error: "Unauthorized" }, 401);
+      return json({ success: false, error: "Unauthorized" });
     }
 
-    const action = body.action;
+    ensureDatabaseSchema();
 
-    switch (action) {
-      case 'submitForm':
+    switch (body.action) {
+      case "submitForm":
         return json(SubmissionService.handle(body.payload));
       default:
-        return json({ success: false, error: "Invalid action" }, 400);
+        return json({ success: false, error: "Invalid action" });
     }
   } catch (error) {
-    return json({ success: false, error: error.message }, 500);
+    return json({ success: false, error: error.message });
   }
 }
 
-/**
- * SERVICES: Course & Lesson
- */
+function setupDatabaseSchema() {
+  const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+  const created = [];
+  const updated = [];
+
+  Object.keys(SHEET_SCHEMAS).forEach(function(sheetName) {
+    const headers = SHEET_SCHEMAS[sheetName];
+    let sheet = spreadsheet.getSheetByName(sheetName);
+
+    if (!sheet) {
+      sheet = spreadsheet.insertSheet(sheetName);
+      created.push(sheetName);
+    } else {
+      updated.push(sheetName);
+    }
+
+    const requiredColumns = headers.length;
+    const currentColumns = sheet.getMaxColumns();
+
+    if (currentColumns < requiredColumns) {
+      sheet.insertColumnsAfter(currentColumns, requiredColumns - currentColumns);
+    } else if (currentColumns > requiredColumns) {
+      sheet.deleteColumns(requiredColumns + 1, currentColumns - requiredColumns);
+    }
+
+    sheet.getRange(1, 1, 1, requiredColumns).setValues([headers]);
+    sheet.setFrozenRows(1);
+    sheet.autoResizeColumns(1, requiredColumns);
+  });
+
+  return { success: true, data: { created: created, updated: updated } };
+}
+
+function ensureDatabaseSchema() {
+  return setupDatabaseSchema();
+}
+
 const CourseService = {
   getAllWithLessons: function() {
     const cache = CacheService.getScriptCache();
-    const cached = cache.get('courses');
+    const cached = cache.get("courses");
     if (cached) return JSON.parse(cached);
 
-    const courses = SheetUtils.readAll('Courses');
-    const lessons = SheetUtils.readAll('Lessons');
-    
-    const lessonMap = lessons.reduce((acc, lesson) => {
+    const courses = SheetUtils.readAll("Courses");
+    const lessons = SheetUtils.readAll("Lessons");
+
+    const lessonMap = lessons.reduce(function(acc, lesson) {
       if (!acc[lesson.course_id]) acc[lesson.course_id] = [];
       acc[lesson.course_id].push({
         ...lesson,
-        url: `https://drive.google.com/uc?id=${lesson.drive_file_id}`
+        url: "https://drive.google.com/uc?id=" + lesson.drive_file_id,
+        preview_url: "https://drive.google.com/file/d/" + lesson.drive_file_id + "/view"
       });
       return acc;
     }, {});
 
-    const data = courses.map(course => ({
-      ...course,
-      lessons: (lessonMap[course.id] || []).sort((a, b) => a.order - b.order)
-    }));
+    const data = courses.map(function(course) {
+      return {
+        ...course,
+        lessons: (lessonMap[course.id] || []).sort(function(a, b) {
+          return Number(a.order || 0) - Number(b.order || 0);
+        })
+      };
+    });
 
     const response = { success: true, data: data };
-    cache.put('courses', JSON.stringify(response), CONFIG.CACHE_TTL);
+    cache.put("courses", JSON.stringify(response), CONFIG.CACHE_TTL);
     return response;
   }
 };
 
-/**
- * SERVICES: Product
- */
 const ProductService = {
   getAll: function() {
     const cache = CacheService.getScriptCache();
-    const cached = cache.get('products');
+    const cached = cache.get("products");
     if (cached) return JSON.parse(cached);
 
-    const data = SheetUtils.readAll('Products');
-    const response = { success: true, data: data };
-    cache.put('products', JSON.stringify(response), CONFIG.CACHE_TTL);
+    const response = { success: true, data: SheetUtils.readAll("Products") };
+    cache.put("products", JSON.stringify(response), CONFIG.CACHE_TTL);
     return response;
   }
 };
 
-/**
- * SERVICES: Submission
- */
 const SubmissionService = {
   handle: function(payload) {
+    if (!payload) {
+      throw new Error("Missing payload");
+    }
+
     const submissionId = Utilities.getUuid();
-    const createdAt = new Date();
-    
-    // 1. Find or Create User
+    const createdAt = new Date().toISOString();
     const userId = UserService.getOrCreate(payload.email, payload.name, payload.phone);
-    
-    // 2. Create Submission Record
-    const submissionRow = [
+
+    SheetUtils.appendRow("Submissions", [
       submissionId,
       userId,
-      payload.type || "generic",
+      payload.type || "team_registration",
       JSON.stringify(payload),
       "pending",
       createdAt
-    ];
-    SheetUtils.appendRow('Submissions', submissionRow);
-    
-    // 3. Batch Insert Members
-    if (payload.members && payload.members.length > 0) {
-      try {
-        const memberRows = payload.members.map(m => [
+    ]);
+
+    try {
+      const members = Array.isArray(payload.members) ? payload.members : [];
+      const memberRows = members.map(function(member) {
+        return [
           Utilities.getUuid(),
           submissionId,
-          m.name,
-          m.DOB || m.dob,
-          m.PhoneNumber || m.phone
-        ]);
-        SheetUtils.appendRows('Members', memberRows);
-        SheetUtils.updateStatus('Submissions', submissionId, "completed");
-      } catch (e) {
-        SheetUtils.updateStatus('Submissions', submissionId, "partial_failure");
-        throw e;
-      }
-    } else {
-      SheetUtils.updateStatus('Submissions', submissionId, "completed");
+          member.name || "",
+          member.dob || member.DOB || "",
+          member.phone || member.PhoneNumber || ""
+        ];
+      });
+
+      SheetUtils.appendRows("Members", memberRows);
+      SheetUtils.updateStatus("Submissions", submissionId, "completed");
+    } catch (error) {
+      SheetUtils.updateStatus("Submissions", submissionId, "partial_failure");
+      throw error;
     }
-    
-    return { success: true, data: { submissionId } };
+
+    return { success: true, data: { submissionId: submissionId } };
   }
 };
 
-/**
- * SERVICES: User
- */
 const UserService = {
   getOrCreate: function(email, name, phone) {
-    const users = SheetUtils.readAll('Users');
-    const existing = users.find(u => u.email === email);
-    
+    const normalizedEmail = String(email || "").trim().toLowerCase();
+    const users = SheetUtils.readAll("Users");
+    const existing = users.find(function(user) {
+      return String(user.email || "").trim().toLowerCase() === normalizedEmail;
+    });
+
     if (existing) return existing.id;
 
-    const newId = Utilities.getUuid();
-    SheetUtils.appendRow('Users', [newId, name, email, phone, "servant", new Date()]);
-    return newId;
+    const userId = Utilities.getUuid();
+    SheetUtils.appendRow("Users", [
+      userId,
+      name || "",
+      normalizedEmail,
+      phone || "",
+      "servant",
+      new Date().toISOString()
+    ]);
+    return userId;
+  },
+
+  checkAccess: function(email, phone) {
+    const normalizedEmail = String(email || "").trim().toLowerCase();
+    const normalizedPhone = String(phone || "").trim();
+    const users = SheetUtils.readAll("Users");
+    const user = users.find(function(record) {
+      const emailMatches =
+        String(record.email || "").trim().toLowerCase() === normalizedEmail;
+      const phoneMatches = String(record.phone || "").trim() === normalizedPhone;
+      return emailMatches && phoneMatches;
+    });
+
+    if (!user) {
+      return { success: true, data: { hasAccess: false } };
+    }
+
+    const submissions = SheetUtils.readAll("Submissions");
+    const latestSubmission = submissions
+      .filter(function(submission) {
+        return (
+          submission.user_id === user.id &&
+          String(submission.status || "").toLowerCase() === "completed"
+        );
+      })
+      .sort(function(a, b) {
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      })[0];
+
+    return {
+      success: true,
+      data: {
+        hasAccess: Boolean(latestSubmission),
+        user: user,
+        submission: latestSubmission || null
+      }
+    };
   }
 };
 
-/**
- * SERVICES: Lesson
- */
 const LessonService = {
   getByCourse: function(courseId) {
-    const lessons = SheetUtils.readAll('Lessons');
-    const data = lessons.filter(l => l.course_id === courseId).sort((a, b) => a.order - b.order);
+    const lessons = SheetUtils.readAll("Lessons");
+    const data = lessons
+      .filter(function(lesson) {
+        return lesson.course_id === courseId;
+      })
+      .sort(function(a, b) {
+        return Number(a.order || 0) - Number(b.order || 0);
+      });
+
     return { success: true, data: data };
   }
 };
 
-/**
- * UTILS: Sheets
- */
 const SheetUtils = {
+  getSheet: function(sheetName) {
+    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(sheetName);
+    if (!sheet) throw new Error("Missing sheet: " + sheetName);
+    return sheet;
+  },
+
   readAll: function(sheetName) {
-    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(sheetName);
-    const data = sheet.getDataRange().getValues();
-    const headers = data.shift();
-    return data.map(row => {
-      const obj = {};
-      headers.forEach((header, i) => obj[header] = row[i]);
-      return obj;
-    });
-  },
-  appendRow: function(sheetName, row) {
-    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(sheetName);
-    sheet.appendRow(row);
-  },
-  appendRows: function(sheetName, rows) {
-    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(sheetName);
+    const sheet = this.getSheet(sheetName);
     const lastRow = sheet.getLastRow();
-    sheet.getRange(lastRow + 1, 1, rows.length, rows[0].length).setValues(rows);
+    const lastColumn = sheet.getLastColumn();
+
+    if (lastRow < 2 || lastColumn === 0) return [];
+
+    const values = sheet.getRange(1, 1, lastRow, lastColumn).getValues();
+    const headers = values.shift();
+
+    return values
+      .filter(function(row) {
+        return row.some(function(value) {
+          return value !== "";
+        });
+      })
+      .map(function(row) {
+        const record = {};
+        headers.forEach(function(header, index) {
+          record[header] = row[index];
+        });
+        return record;
+      });
   },
+
+  appendRow: function(sheetName, row) {
+    this.getSheet(sheetName).appendRow(row);
+  },
+
+  appendRows: function(sheetName, rows) {
+    if (!rows || rows.length === 0) return;
+    const sheet = this.getSheet(sheetName);
+    sheet.getRange(sheet.getLastRow() + 1, 1, rows.length, rows[0].length).setValues(rows);
+  },
+
   updateStatus: function(sheetName, id, status) {
-    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(sheetName);
-    const data = sheet.getDataRange().getValues();
-    for (let i = 1; i < data.length; i++) {
-      if (data[i][0] === id) {
-        sheet.getRange(i + 1, 5).setValue(status);
-        break;
+    const sheet = this.getSheet(sheetName);
+    const values = sheet.getDataRange().getValues();
+    const headers = values[0] || [];
+    const statusColumn = headers.indexOf("status") + 1;
+
+    if (statusColumn === 0) throw new Error("Missing status column in " + sheetName);
+
+    for (let rowIndex = 1; rowIndex < values.length; rowIndex++) {
+      if (values[rowIndex][0] === id) {
+        sheet.getRange(rowIndex + 1, statusColumn).setValue(status);
+        return;
       }
     }
   }
 };
 
-function json(data, code = 200) {
-  return ContentService.createTextOutput(JSON.stringify(data))
-    .setMimeType(ContentService.MimeType.JSON);
+function json(data) {
+  return ContentService.createTextOutput(JSON.stringify(data)).setMimeType(
+    ContentService.MimeType.JSON
+  );
 }

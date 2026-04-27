@@ -35,7 +35,7 @@
 
 :root {
   /* DaRA Brand Theme */
-  --background: oklch(0.99 0.005 85 / 0%); /* Fully transparent */
+  --background: oklch(0.99 0.004 250);
   --foreground: oklch(0.2 0.02 240);
 
   /* Deep Blue: #2E4A7D */
@@ -55,7 +55,7 @@
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.2 0.02 240);
 
-  --muted: oklch(0.96 0.005 85);
+  --muted: oklch(0.96 0.006 250);
   --muted-foreground: oklch(0.45 0.05 240);
 
   --destructive: oklch(0.52 0.18 25.5);
@@ -73,7 +73,7 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-transparent text-foreground font-sans;
+    @apply bg-background text-foreground font-sans;
   }
   h1, h2, h3, h4, h5, h6 {
     @apply font-heading tracking-tight;

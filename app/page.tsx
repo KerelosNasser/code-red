@@ -1,96 +1,92 @@
 "use client"
 import React, { useState, useEffect } from "react"
+import Image from "next/image"
 import { Input } from "@/components/ui/input"
 import { useFieldArray, useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
-import z from "zod"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { toast } from "sonner"
 import { motion, AnimatePresence } from "framer-motion"
 import { Plus, Trash2, Send, Users, User, CircleCheck } from "lucide-react"
-import { submitToGas } from "@/lib/api-client"
+import { checkUserAccess, submitToGas } from "@/lib/api-client"
+import {
+  clearStoredAccess,
+  getStoredAccess,
+  storeAccess,
+} from "@/lib/access-storage"
+import {
+  generateSubmissionId,
+  generateWhatsAppLink,
+  registrationSchema,
+  type RegistrationFormValues,
+} from "@/lib/registration"
 
 const ADMIN_WHATSAPP_PHONE =
   process.env.NEXT_PUBLIC_ADMIN_WHATSAPP_PHONE || "15551234567"
-
-const MemberSchema = z.object({
-  name: z.string().min(1, "Member name is required"),
-  DOB: z.string().min(1, "Member date of birth is required"),
-  PhoneNumber: z
-    .string()
-    .min(11, "Phone number must be 11 digits")
-    .max(11, "Phone number must be 11 digits"),
-})
-
-const schema = z.object({
-  name: z.string().min(1, "Servant name is required"),
-  email: z.string().email("Invalid email address"),
-  phone: z
-    .string()
-    .min(11, "Phone number must be 11 digits")
-    .max(11, "Phone number must be 11 digits"),
-  paymentReference: z.string().min(1, "Payment reference is required"),
-  DOB: z.string().min(1, "Date of birth is required"),
-  members: z.array(MemberSchema).max(15, "Maximum 15 members allowed"),
-})
-
-type FormValues = z.infer<typeof schema>
 
 type SubmissionStatus = {
   type: "success" | "error"
   message: string
 } | null
 
-type WhatsAppSubmissionData = {
-  name: string
-  phone: string
-  paymentReference: string
-  uniqueId: string
-  timestamp: string
-}
-
-function generateSubmissionId() {
-  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
-    return crypto.randomUUID()
-  }
-
-  return `PAY-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
-}
-
-function generateWhatsAppLink(data: WhatsAppSubmissionData) {
-  const message = `New Payment Submission
-Name: ${data.name}
-Phone: ${data.phone}
-Payment Ref: ${data.paymentReference}
-ID: ${data.uniqueId}
-Time: ${data.timestamp}
-
-I have completed payment via InstaPay. Please verify.`
-
-  return `https://wa.me/${ADMIN_WHATSAPP_PHONE}?text=${encodeURIComponent(
-    message
-  )}`
-}
-
 export default function Home() {
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isCheckingAccess, setIsCheckingAccess] = useState(true)
   const [hasSubmitted, setHasSubmitted] = useState(false)
   const [whatsAppUrl, setWhatsAppUrl] = useState("")
   const [submissionStatus, setSubmissionStatus] =
     useState<SubmissionStatus>(null)
 
   useEffect(() => {
-    // Check if already submitted on mount
-    const submitted = localStorage.getItem("dara_has_submitted") === "true"
-    if (submitted) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setHasSubmitted(true)
+    let isMounted = true
+
+    async function verifyStoredAccess() {
+      const storedAccess = getStoredAccess()
+
+      if (!storedAccess) {
+        if (isMounted) setIsCheckingAccess(false)
+        return
+      }
+
+      try {
+        const result = await checkUserAccess(storedAccess)
+
+        if (!isMounted) return
+
+        if (result.data?.hasAccess) {
+          setHasSubmitted(true)
+        } else {
+          clearStoredAccess()
+          setHasSubmitted(false)
+          setSubmissionStatus({
+            type: "error",
+            message: "We could not find your registration in the database.",
+          })
+        }
+      } catch (error) {
+        if (!isMounted) return
+
+        clearStoredAccess()
+        setSubmissionStatus({
+          type: "error",
+          message: "Could not verify your registration. Please submit again.",
+        })
+        console.error(error)
+      } finally {
+        if (isMounted) setIsCheckingAccess(false)
+      }
+    }
+
+    void verifyStoredAccess()
+
+    return () => {
+      isMounted = false
     }
   }, [])
 
-  const form = useForm<z.infer<typeof schema>>({
-    resolver: zodResolver(schema),
+  const form = useForm<RegistrationFormValues>({
+    resolver: zodResolver(registrationSchema),
     defaultValues: {
       name: "",
       email: "",
@@ -106,7 +102,7 @@ export default function Home() {
     name: "members",
   })
 
-  const onSubmit = async (values: FormValues) => {
+  const onSubmit = async (values: RegistrationFormValues) => {
     if (isSubmitting || hasSubmitted) return
 
     setIsSubmitting(true)
@@ -117,12 +113,13 @@ export default function Home() {
     const timestamp = new Date().toISOString()
 
     try {
-      await submitToGas({
+      const result = await submitToGas({
         ...values,
         type: "team_registration",
       })
+      const submissionId = result.data?.submissionId || uniqueId
 
-      const redirectUrl = generateWhatsAppLink({
+      const redirectUrl = generateWhatsAppLink(ADMIN_WHATSAPP_PHONE, {
         name: values.name,
         phone: values.phone,
         paymentReference: values.paymentReference,
@@ -131,9 +128,13 @@ export default function Home() {
       })
 
       // Update state and persistence
-      localStorage.setItem("dara_has_submitted", "true")
+      storeAccess({
+        email: values.email,
+        phone: values.phone,
+        submissionId,
+      })
       window.dispatchEvent(new Event("dara_access_granted"))
-      
+
       setHasSubmitted(true)
       setWhatsAppUrl(redirectUrl)
 
@@ -163,6 +164,14 @@ export default function Home() {
     toast.error(errorMessage)
   }
 
+  if (isCheckingAccess) {
+    return (
+      <div className="relative z-10 flex min-h-screen items-center justify-center bg-white px-4 py-12">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-slate-200 border-t-[#2E4A7D]" />
+      </div>
+    )
+  }
+
   // Success View
   if (hasSubmitted) {
     return (
@@ -173,26 +182,40 @@ export default function Home() {
           className="mx-auto max-w-2xl overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl sm:mt-8"
         >
           <div className="h-2 w-full bg-blue-600" />
-          <div className="p-10 text-center space-y-6">
+          <div className="space-y-6 p-10 text-center">
             <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100">
               <CircleCheck className="h-8 w-8 text-emerald-600" />
             </div>
             <div className="space-y-2">
-              <h2 className="text-3xl font-bold text-slate-900">Registration Complete</h2>
+              <h2 className="text-3xl font-bold text-slate-900">
+                Registration Complete
+              </h2>
               <p className="text-slate-600">
-                Thank you for registering. You now have access to the DaRa platform.
+                Thank you for registering. You now have access to the DaRa
+                platform.
               </p>
             </div>
-            
-            <div className="pt-6 border-t border-slate-100 flex flex-col gap-4 sm:flex-row sm:justify-center">
+
+            <div className="flex flex-col gap-4 border-t border-slate-100 pt-6 sm:flex-row sm:justify-center">
               {whatsAppUrl && (
-                <Button asChild className="bg-emerald-600 hover:bg-emerald-700 text-white font-medium h-12 px-8">
-                  <a href={whatsAppUrl} target="_blank" rel="noopener noreferrer">
+                <Button
+                  asChild
+                  className="h-12 bg-emerald-600 px-8 font-medium text-white hover:bg-emerald-700"
+                >
+                  <a
+                    href={whatsAppUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
                     Open WhatsApp
                   </a>
                 </Button>
               )}
-              <Button asChild variant="outline" className="border-[#2E4A7D] text-[#2E4A7D] hover:bg-[#2E4A7D]/10 h-12 px-8">
+              <Button
+                asChild
+                variant="outline"
+                className="h-12 border-[#2E4A7D] px-8 text-[#2E4A7D] hover:bg-[#2E4A7D]/10"
+              >
                 <a href="/courses">Browse Courses</a>
               </Button>
             </div>
@@ -216,10 +239,19 @@ export default function Home() {
           >
             <div className="h-2 w-full bg-[#2E4A7D]" />
             <div className="mt-8 mb-2 flex flex-col items-center text-center">
-              <h1 className="text-4xl font-bold tracking-tight text-slate-900">
-                Da<span className="text-[#F5A623]">Ra</span>
-              </h1>
-              <p className="mt-2 font-medium tracking-widest text-[#F5A623] uppercase">
+              <div className="flex items-center justify-center gap-0">
+                <Image
+                  src="/icon-dara-logo.png"
+                  alt="icon"
+                  width={70}
+                  height={70}
+                />
+
+                <h1 className="text-4xl font-bold tracking-tight text-blue-900 sm:text-5xl">
+                  DaRa
+                </h1>
+              </div>
+              <p className="mt-2 font-medium tracking-widest text-red-700 uppercase">
                 M&P Didaskalia Advanced Robotics Association
               </p>
             </div>
@@ -349,14 +381,14 @@ export default function Home() {
                   </div>
                   <Button
                     type="button"
-                    variant="outline"
+                    // variant="outline"
                     size="sm"
                     onClick={() =>
                       fields.length < 15 &&
                       append({ name: "", DOB: "", PhoneNumber: "" })
                     }
                     disabled={fields.length >= 15}
-                    className="focus:ring-primary disabled:border-slate-200 border-amber-600 text-red-600 transition-all hover:bg-red-800 hover:text-white"
+                    className="border-amber-600 bg-white text-red-600 hover:bg-red-800 hover:text-white "
                   >
                     <Plus className="mr-1 h-4 w-4" /> Add Member
                   </Button>
@@ -367,9 +399,9 @@ export default function Home() {
                     <motion.div
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
-                      className="rounded-lg border border-dashed border-slate-200 bg-slate-50 py-10 text-center"
+                      className="rounded-lg border border-amber-800 bg-slate-50 py-10 text-center"
                     >
-                      <p className="text-sm text-blue-700">
+                      <p className="text-sm text-red-700">
                         No members added to the unit yet
                       </p>
                     </motion.div>

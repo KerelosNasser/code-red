@@ -3,6 +3,7 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useEffect, useState } from "react"
+import { getStoredAccess } from "@/lib/access-storage"
 
 export function Navbar() {
   const pathname = usePathname()
@@ -11,7 +12,7 @@ export function Navbar() {
   useEffect(() => {
     // Check localStorage on mount and when storage event fires
     const checkAccess = () => {
-      setHasAccess(localStorage.getItem("dara_has_submitted") === "true")
+      setHasAccess(Boolean(getStoredAccess()))
     }
     
     checkAccess()
