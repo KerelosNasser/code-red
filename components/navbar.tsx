@@ -33,7 +33,7 @@ export function Navbar() {
     after:duration-300 hover:after:w-full`
 
   return (
-    <nav className="sticky top-0 z-50 w-full border-b border-slate-200 bg-blue-950/90 backdrop-blur-md shadow-sm">
+    <nav className="sticky top-0 z-50 w-full  bg-blue-950/90 backdrop-blur-md shadow-sm">
       <div className="mx-auto flex h-20 max-w-7xl items-center justify-around">
         
         {/* Logo */}
