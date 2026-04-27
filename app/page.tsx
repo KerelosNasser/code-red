@@ -1,5 +1,5 @@
 "use client"
-import React, { useState } from "react"
+import React, { useState, useEffect } from "react"
 import { Input } from "@/components/ui/input"
 import { useFieldArray, useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -80,6 +80,14 @@ export default function Home() {
   const [submissionStatus, setSubmissionStatus] =
     useState<SubmissionStatus>(null)
 
+  useEffect(() => {
+    // Check if already submitted on mount
+    const submitted = localStorage.getItem("dara_has_submitted") === "true"
+    if (submitted) {
+      setHasSubmitted(true)
+    }
+  }, [])
+
   const form = useForm<z.infer<typeof schema>>({
     resolver: zodResolver(schema),
     defaultValues: {
@@ -120,19 +128,19 @@ export default function Home() {
         uniqueId,
         timestamp,
       })
+
+      // Update state and persistence
+      localStorage.setItem("dara_has_submitted", "true")
+      window.dispatchEvent(new Event("dara_access_granted"))
+      
       setHasSubmitted(true)
       setWhatsAppUrl(redirectUrl)
 
-      const successMessage = "Redirecting to WhatsApp..."
       setSubmissionStatus({
         type: "success",
-        message: successMessage,
+        message: "Registration successful!",
       })
-      toast.success("Submission sent. Opening WhatsApp...")
-
-      window.setTimeout(() => {
-        window.location.href = redirectUrl
-      }, 500)
+      toast.success("Submission sent. You can now access all features.")
     } catch (error) {
       const errorMessage = "Submission failed. Please try again."
       setSubmissionStatus({
@@ -154,6 +162,45 @@ export default function Home() {
     toast.error(errorMessage)
   }
 
+  // Success View
+  if (hasSubmitted) {
+    return (
+      <div className="relative z-10 min-h-screen bg-slate-50 px-4 py-12">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mx-auto max-w-2xl overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl sm:mt-8"
+        >
+          <div className="h-2 w-full bg-[#2E4A7D]" />
+          <div className="p-10 text-center space-y-6">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100">
+              <CircleCheck className="h-8 w-8 text-emerald-600" />
+            </div>
+            <div className="space-y-2">
+              <h2 className="text-3xl font-bold text-slate-900">Registration Complete</h2>
+              <p className="text-slate-600">
+                Thank you for registering. You now have access to the DaRa platform.
+              </p>
+            </div>
+            
+            <div className="pt-6 border-t border-slate-100 flex flex-col gap-4 sm:flex-row sm:justify-center">
+              {whatsAppUrl && (
+                <Button asChild className="bg-emerald-600 hover:bg-emerald-700 text-white font-medium h-12 px-8">
+                  <a href={whatsAppUrl} target="_blank" rel="noopener noreferrer">
+                    Open WhatsApp
+                  </a>
+                </Button>
+              )}
+              <Button asChild variant="outline" className="border-[#2E4A7D] text-[#2E4A7D] hover:bg-[#2E4A7D]/10 h-12 px-8">
+                <a href="/courses">Browse Courses</a>
+              </Button>
+            </div>
+          </div>
+        </motion.div>
+      </div>
+    )
+  }
+
   return (
     <>
       <div className="relative z-10 min-h-screen bg-white px-4 py-12">
@@ -166,12 +213,12 @@ export default function Home() {
             onSubmit={form.handleSubmit(onSubmit, onInvalidSubmit)}
             className="overflow-hidden rounded-xl border border-slate-200 bg-white/80 shadow-xl backdrop-blur-sm sm:mt-8"
           >
-            <div className="h-2 w-full bg-blue-900" />
+            <div className="h-2 w-full bg-[#2E4A7D]" />
             <div className="mt-8 mb-2 flex flex-col items-center text-center">
               <h1 className="text-4xl font-bold tracking-tight text-slate-900">
-                Da<span className="text-amber-600">Ra</span>
+                Da<span className="text-[#F5A623]">Ra</span>
               </h1>
-              <p className="mt-2 font-medium tracking-widest text-amber-600 uppercase">
+              <p className="mt-2 font-medium tracking-widest text-[#F5A623] uppercase">
                 M&P Didaskalia Advanced Robotics Association
               </p>
             </div>
@@ -237,7 +284,7 @@ export default function Home() {
                     </Label>
                     <Input
                       id="phone"
-                      placeholder="10 digit number"
+                      placeholder="11 digit number"
                       className="border-slate-200 bg-slate-50 transition-all focus:bg-white"
                       {...form.register("phone")}
                     />
@@ -308,7 +355,7 @@ export default function Home() {
                       append({ name: "", DOB: "", PhoneNumber: "" })
                     }
                     disabled={fields.length >= 15}
-                    className="focus:ring-primarydisabled:border-slate-200 border-primary text-primary transition-all hover:bg-primary hover:text-white"
+                    className="focus:ring-primary disabled:border-slate-200 border-primary text-primary transition-all hover:bg-primary hover:text-white"
                   >
                     <Plus className="mr-1 h-4 w-4" /> Add Member
                   </Button>
@@ -410,7 +457,7 @@ export default function Home() {
                 {isSubmitting ? (
                   <>
                     <span className="h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-                    Redirecting to WhatsApp...
+                    Submitting...
                   </>
                 ) : (
                   <>
