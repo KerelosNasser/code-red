@@ -168,6 +168,16 @@ const UserService = {
 };
 
 /**
+ * SERVICES: Lesson
+ */
+const LessonService = {
+  getByCourse: function(courseId) {
+    const lessons = SheetUtils.readAll('Lessons');
+    return lessons.filter(l => l.course_id === courseId).sort((a, b) => a.order - b.order);
+  }
+};
+
+/**
  * UTILS: Sheets
  */
 const SheetUtils = {
