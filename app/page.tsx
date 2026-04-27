@@ -117,7 +117,7 @@ export default function HomePage() {
                   width={120}
                   height={120}
                 />
-                <h1 className="text-7xl font-extrabold tracking-tight text-slate-700">
+                <h1 className="text-7xl font-extrabold tracking-tight text-blue-900">
                   DaRa
                 </h1>
               </div>
@@ -180,10 +180,10 @@ export default function HomePage() {
         </div>
 
         {/* Decorative Circuit Elements */}
-        <div className="absolute top- left-35 hidden -translate-y-1/2 text-[#2E4A7D] opacity-20 xl:block">
+        <div className="top- absolute left-35 hidden -translate-y-1/2 text-[#2E4A7D] opacity-20 xl:block">
           <CircuitBoard size={150} />
         </div>
-        <div className="absolute bottom-100 right-35 hidden -translate-y-1/2 text-[#F5A623] opacity-20 xl:block">
+        <div className="absolute right-35 bottom-100 hidden -translate-y-1/2 text-[#F5A623] opacity-20 xl:block">
           <Cpu size={120} />
         </div>
       </section>
