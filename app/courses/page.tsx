@@ -2,10 +2,11 @@
 
 import React, { useEffect, useState } from "react"
 import Link from "next/link"
-import { BookOpen, Clock, BarChart } from "lucide-react"
+import { BookOpen, Clock, BarChart, ArrowRight } from "lucide-react"
 import { getCoursesFromGas } from "@/lib/api-client"
 import { MOCK_COURSES } from "@/lib/mock-data"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
 
 interface Course {
   id: string
@@ -23,13 +24,12 @@ export default function CoursesPage() {
     const fetchCourses = async () => {
       try {
         const res = await getCoursesFromGas()
-        if (res.success && res.data && res.data.length > 0) {
+        if (res.success && res.data?.length > 0) {
           setCourses(res.data)
         } else {
           setCourses(MOCK_COURSES)
         }
-      } catch (error) {
-        console.error("Failed to fetch courses:", error)
+      } catch {
         setCourses(MOCK_COURSES)
       } finally {
         setLoading(false)
@@ -39,67 +39,134 @@ export default function CoursesPage() {
   }, [])
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
-      <div className="mb-12 border-b border-slate-200 pb-5">
-        <h1 className="text-4xl font-bold tracking-tight text-[#2E4A7D]">Courses</h1>
-        <p className="mt-2 text-lg text-slate-600">Advanced robotics and engineering curriculum.</p>
+    <div className="min-h-screen bg-white">
+      {/* Header */}
+      <div className="relative overflow-hidden border-b border-slate-200 bg-slate-800 text-white">
+        {/* Grid Pattern */}
+        <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.05)_1px,transparent_1px)] bg-[size:40px_40px]" />
+
+        {/* Amber Glow */}
+        <div className="absolute -top-40 left-1/2 h-[600px] w-[600px] -translate-x-1/2 rounded-full bg-amber-700/20 blur-[120px]" />
+
+        {/* Animated gradient line */}
+        <div className="absolute top-0 left-0 h-[2px] w-full animate-pulse bg-gradient-to-r from-transparent via-amber-500 to-transparent" />
+
+        <div className="relative z-10 container mx-auto px-4 py-10 lg:py-18">
+          <div className="max-w-3xl">
+            {/* Label */}
+            <div className="mb-6 flex items-center gap-2 text-sm font-medium text-slate-400">
+              <BookOpen className="h-4 w-4 text-amber-500" />
+              <span className="tracking-wide text-red-700 uppercase">
+                Robotics Education
+              </span>
+            </div>
+
+            {/* Title */}
+            <h1 className="text-4xl font-bold tracking-tight sm:text-5xl lg:text-6xl">
+              <span className="bg-white bg-clip-text text-transparent">
+                Build the Future
+              </span>
+              <br />
+              <span className="text-amber-500">with Robotics</span>
+            </h1>
+
+            {/* Description */}
+            <p className="mt-2 max-w-xl text-lg text-slate-400">
+              Hands-on robotics and engineering courses designed to turn ideas
+              into real-world systems.
+            </p>
+          </div>
+        </div>
       </div>
-      
-      <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
+      {/* Courses */}
+      <section className="container mx-auto px-4 py-10">
         {loading ? (
-          [1, 2, 3].map((i) => (
-            <div key={i} className="h-[400px] animate-pulse rounded-2xl bg-slate-100" />
-          ))
-        ) : courses.length > 0 ? (
-          courses.map((course) => (
-            <div key={course.id} className="flex flex-col rounded-xl border border-slate-200 bg-white shadow-sm transition-all hover:border-[#2E4A7D]/30 hover:shadow-lg">
-              <div className="h-32 bg-[#2E4A7D] p-6 flex items-end relative overflow-hidden">
-                <BookOpen className="h-8 w-8 text-[#F5A623] relative z-10" />
-                <div className="absolute inset-0 opacity-10">
-                  <div className="absolute inset-0 bg-white/20 transform rotate-12 translate-x-12 translate-y-12" />
+          <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
+            {[1, 2, 3].map((i) => (
+              <div
+                key={i}
+                className="rounded-2xl border border-slate-200 bg-white shadow-sm"
+              >
+                <div className="h-48 animate-pulse bg-slate-100" />
+                <div className="space-y-4 p-6">
+                  <div className="h-6 w-32 animate-pulse rounded bg-slate-200" />
+                  <div className="h-4 w-full animate-pulse rounded bg-slate-200" />
                 </div>
               </div>
-              <div className="p-6 flex-1 flex flex-col">
-                <div className="flex-1 space-y-3">
-                  <h3 className="text-xl font-bold text-slate-900 leading-tight">{course.title}</h3>
-                  <p className="text-sm text-slate-600 line-clamp-3">
-                    {course.description || "Master advanced robotics concepts with our structured curriculum."}
+            ))}
+          </div>
+        ) : courses.length > 0 ? (
+          <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
+            {courses.map((course) => (
+              <div
+                key={course.id}
+                className="group relative flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg hover:shadow-amber-700/10"
+              >
+                {/* Top Icon */}
+                <div className="flex h-48 items-center justify-center border-b border-slate-200 bg-slate-50">
+                  <div className="flex h-20 w-20 items-center justify-center rounded-full bg-amber-100">
+                    <BookOpen className="h-10 w-10 text-amber-700" />
+                  </div>
+                </div>
+
+                {/* Content */}
+                <div className="flex flex-1 flex-col p-6">
+                  <Badge className="mb-3 w-fit border border-amber-300 bg-amber-100 text-amber-800">
+                    {course.level || "Intermediate"}
+                  </Badge>
+
+                  <h3 className="mb-2 text-xl font-semibold text-slate-900 transition group-hover:text-amber-700">
+                    {course.title}
+                  </h3>
+
+                  <p className="mb-4 flex-1 text-sm text-slate-500">
+                    {course.description ||
+                      "Professional course content for real growth."}
                   </p>
-                  <div className="flex items-center gap-4 text-sm font-medium text-slate-500">
-                    <div className="flex items-center gap-1">
-                      <BarChart className="h-4 w-4" />
-                      <span>{course.level || "Intermediate"}</span>
-                    </div>
+
+                  <div className="flex items-center justify-between border-t pt-4 text-xs text-slate-400">
                     <div className="flex items-center gap-1">
                       <Clock className="h-4 w-4" />
-                      <span>{course.time || "12 hrs"}</span>
+                      {course.time || "12+ hrs"}
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <BarChart className="h-4 w-4" />
+                      {course.level || "Intermediate"}
+                    </div>
+                  </div>
+
+                  {/* Hover CTA */}
+                  <div className="absolute inset-0 flex items-center justify-center opacity-0 transition group-hover:opacity-100">
+                    <div className="flex items-center gap-2 font-semibold text-amber-700">
+                      Explore <ArrowRight className="h-5 w-5" />
                     </div>
                   </div>
                 </div>
-                <Button asChild className="mt-6 w-full bg-[#2E4A7D] hover:bg-[#2E4A7D]/90 font-bold">
-                  <Link href={`/courses/${course.id}`}>
-                    Explore Lessons
-                  </Link>
-                </Button>
+                <Link
+                  href={`/courses/${course.id}`}
+                  className="absolute inset-0"
+                />
               </div>
+            ))}
+            <div className="bg- rounded-2xl  bg-slate-700 border justify-center border-dashed border-slate-300 py-20 text-center">
+              <h3 className="mb-4 text-2xl font-bold text-white">
+                Can’t find what you want?
+              </h3>
+              <p className="mb-6 text-slate-500">
+                Request a topic and we’ll build it.
+              </p>
+              <Button className="bg-amber-700 px-8 py-3 text-base text-white hover:bg-amber-800">
+                Request Topic
+              </Button>
             </div>
-          ))
+          </div>
         ) : (
-          <div className="col-span-full py-20 text-center border-2 border-dashed border-slate-200 rounded-2xl">
-            <p className="text-slate-500 font-medium">No courses available at the moment.</p>
+          <div className="rounded-2xl border border-dashed border-slate-300 py-20 text-center">
+            <BookOpen className="mx-auto mb-4 h-12 w-12 text-slate-400" />
+            <p className="text-slate-500">No courses yet</p>
           </div>
         )}
-      </div>
-      
-      <div className="mt-12 p-8 rounded-xl bg-[#2E4A7D]/5 border border-[#2E4A7D]/10 flex flex-col md:flex-row items-center justify-between gap-6">
-        <div className="space-y-1">
-          <h4 className="text-lg font-bold text-[#2E4A7D]">Can&apos;t find what you&apos;re looking for?</h4>
-          <p className="text-slate-600">We are constantly adding new curriculum to the platform.</p>
-        </div>
-        <Button variant="outline" className="border-2 border-[#2E4A7D] text-[#2E4A7D] font-bold hover:bg-[#2E4A7D] hover:text-white">
-          Request a Topic
-        </Button>
-      </div>
+      </section>{" "}
     </div>
   )
 }
