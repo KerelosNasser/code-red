@@ -14,6 +14,8 @@ import {
   clearStoredAccess,
   getStoredAccess,
   storeAccess,
+  isSessionValidated,
+  setSessionValidated,
 } from "@/lib/access-storage"
 import {
   generateSubmissionId,
@@ -58,6 +60,13 @@ export default function RegisterPage() {
         return
       }
 
+      // Use cached session validation
+      if (isSessionValidated()) {
+        setHasSubmitted(true)
+        if (isMounted) setIsCheckingAccess(false)
+        return
+      }
+
       try {
         const result = await checkUserAccess(storedAccess)
 
@@ -65,6 +74,7 @@ export default function RegisterPage() {
 
         if (result.data?.hasAccess) {
           setHasSubmitted(true)
+          setSessionValidated(true)
         } else {
           clearStoredAccess()
           setHasSubmitted(false)

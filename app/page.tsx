@@ -13,7 +13,7 @@ import {
   ShieldCheck,
   ChevronRight
 } from "lucide-react"
-import { getStoredAccess, clearStoredAccess, type StoredAccess } from "@/lib/access-storage"
+import { getStoredAccess, clearStoredAccess, isSessionValidated, setSessionValidated, type StoredAccess } from "@/lib/access-storage"
 import { checkUserAccess, getCoursesFromGas, getProductsFromGas } from "@/lib/api-client"
 import { Button } from "@/components/ui/button"
 
@@ -44,12 +44,15 @@ export default function HomePage() {
       setAccess(stored)
       
       try {
-        // Background validation if stored access exists
-        if (stored) {
+        // Use cached session validation to avoid slow GAS calls
+        if (stored && isSessionValidated()) {
+          setIsValidated(true)
+        } else if (stored) {
           try {
             const result = await checkUserAccess(stored)
             if (result.data?.hasAccess) {
               setIsValidated(true)
+              setSessionValidated(true)
             } else {
               // Rule: If backend cannot confirm it, clear local access
               clearStoredAccess()
@@ -141,9 +144,6 @@ export default function HomePage() {
                 </Button>
               ) : (
                 <>
-                  <Button asChild size="lg" className="bg-[#2E4A7D] hover:bg-[#2E4A7D]/90 text-white h-14 px-8 text-lg font-bold rounded-xl shadow-lg shadow-blue-100">
-                    <Link href="/register">Join the Association</Link>
-                  </Button>
                   <Button asChild variant="outline" size="lg" className="border-slate-200 text-slate-600 hover:bg-slate-50 h-14 px-8 text-lg font-bold rounded-xl">
                     <Link href="/about">Learn More</Link>
                   </Button>
