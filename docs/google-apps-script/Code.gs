@@ -1,12 +1,20 @@
 /**
- * GOOGLE APPS SCRIPT BACKEND
- * Deployment: Deploy as Web App -> Execute as Me -> Access: Anyone
+ * DaRA (Didaskalia Advanced Robotics Association)
+ * Google Apps Script Backend API
+ * 
+ * Rules:
+ * - Each sheet = table
+ * - id (UUID), created_at, status
+ * - Return { success: true, data: ... }
+ * - Cache GET requests
+ * - Batch read/write
+ * - Secret key for POST
  */
 
 const CONFIG = {
-  SHEET_ID: SpreadsheetApp.getActiveSpreadsheet().getId(),
+  SECRET: "DARA-ELKEDESEEN",
   CACHE_TTL: 600, // 10 minutes
-  SECRET_KEY: "YOUR_OPTIONAL_SECRET", // Recommended for POST protection
+  SHEET_ID: SpreadsheetApp.getActiveSpreadsheet().getId()
 };
 
 /**
@@ -18,22 +26,20 @@ function doGet(e) {
   try {
     switch (action) {
       case 'getCourses':
-        return jsonResponse(CourseService.getAllWithLessons());
+        return json(CourseService.getAllWithLessons());
       case 'getProducts':
-        return jsonResponse(ProductService.getAll());
+        return json(ProductService.getAll());
       case 'getLessons':
-        return jsonResponse(LessonService.getByCourse(e.parameter.course_id));
+        return json(LessonService.getByCourse(e.parameter.course_id));
       case 'clearCache':
-        if (CONFIG.SECRET_KEY && e.parameter.token !== CONFIG.SECRET_KEY) {
-          return jsonResponse({ error: "Unauthorized" }, 401);
-        }
+        if (e.parameter.token !== CONFIG.SECRET) return json({ success: false, error: "Unauthorized" }, 401);
         CacheService.getScriptCache().removeAll(['courses', 'products']);
-        return jsonResponse({ success: true, message: "Cache cleared" });
+        return json({ success: true, message: "Cache cleared" });
       default:
-        return jsonResponse({ error: "Invalid action" }, 400);
+        return json({ success: false, error: "Invalid action" }, 400);
     }
   } catch (error) {
-    return jsonResponse({ error: error.message }, 500);
+    return json({ success: false, error: error.message }, 500);
   }
 }
 
@@ -42,23 +48,23 @@ function doGet(e) {
  */
 function doPost(e) {
   try {
-    const data = JSON.parse(e.postData.contents);
+    const body = JSON.parse(e.postData.contents);
     
-    // Validate Secret Key if configured
-    if (CONFIG.SECRET_KEY && data.token !== CONFIG.SECRET_KEY) {
-      return jsonResponse({ error: "Unauthorized" }, 401);
+    // Security check
+    if (body.token !== CONFIG.SECRET) {
+      return json({ success: false, error: "Unauthorized" }, 401);
     }
 
-    const action = data.action;
+    const action = body.action;
 
     switch (action) {
       case 'submitForm':
-        return jsonResponse(SubmissionService.handle(data.payload));
+        return json(SubmissionService.handle(body.payload));
       default:
-        return jsonResponse({ error: "Invalid action" }, 400);
+        return json({ success: false, error: "Invalid action" }, 400);
     }
   } catch (error) {
-    return jsonResponse({ error: error.message }, 500);
+    return json({ success: false, error: error.message }, 500);
   }
 }
 
@@ -74,20 +80,23 @@ const CourseService = {
     const courses = SheetUtils.readAll('Courses');
     const lessons = SheetUtils.readAll('Lessons');
     
-    // Group lessons by course_id
     const lessonMap = lessons.reduce((acc, lesson) => {
       if (!acc[lesson.course_id]) acc[lesson.course_id] = [];
-      acc[lesson.course_id].push(lesson);
+      acc[lesson.course_id].push({
+        ...lesson,
+        url: `https://drive.google.com/uc?id=${lesson.drive_file_id}`
+      });
       return acc;
     }, {});
 
-    const result = courses.map(course => ({
+    const data = courses.map(course => ({
       ...course,
       lessons: (lessonMap[course.id] || []).sort((a, b) => a.order - b.order)
     }));
 
-    cache.put('courses', JSON.stringify(result), CONFIG.CACHE_TTL);
-    return result;
+    const response = { success: true, data: data };
+    cache.put('courses', JSON.stringify(response), CONFIG.CACHE_TTL);
+    return response;
   }
 };
 
@@ -100,19 +109,20 @@ const ProductService = {
     const cached = cache.get('products');
     if (cached) return JSON.parse(cached);
 
-    const products = SheetUtils.readAll('Products');
-    cache.put('products', JSON.stringify(products), CONFIG.CACHE_TTL);
-    return products;
+    const data = SheetUtils.readAll('Products');
+    const response = { success: true, data: data };
+    cache.put('products', JSON.stringify(response), CONFIG.CACHE_TTL);
+    return response;
   }
 };
 
 /**
- * SERVICES: Submission (The Transactional Flow)
+ * SERVICES: Submission
  */
 const SubmissionService = {
   handle: function(payload) {
     const submissionId = Utilities.getUuid();
-    const createdAt = new Date().toISOString();
+    const createdAt = new Date();
     
     // 1. Find or Create User
     const userId = UserService.getOrCreate(payload.email, payload.name, payload.phone);
@@ -123,12 +133,12 @@ const SubmissionService = {
       userId,
       payload.type || "generic",
       JSON.stringify(payload),
-      "PENDING",
+      "pending",
       createdAt
     ];
     SheetUtils.appendRow('Submissions', submissionRow);
     
-    // 3. Extract and Batch Insert Members
+    // 3. Batch Insert Members
     if (payload.members && payload.members.length > 0) {
       try {
         const memberRows = payload.members.map(m => [
@@ -139,16 +149,16 @@ const SubmissionService = {
           m.PhoneNumber || m.phone
         ]);
         SheetUtils.appendRows('Members', memberRows);
-        SheetUtils.updateStatus('Submissions', submissionId, "SUCCESS");
+        SheetUtils.updateStatus('Submissions', submissionId, "completed");
       } catch (e) {
-        SheetUtils.updateStatus('Submissions', submissionId, "PARTIAL_FAILURE");
+        SheetUtils.updateStatus('Submissions', submissionId, "partial_failure");
         throw e;
       }
     } else {
-      SheetUtils.updateStatus('Submissions', submissionId, "SUCCESS");
+      SheetUtils.updateStatus('Submissions', submissionId, "completed");
     }
     
-    return { success: true, submissionId };
+    return { success: true, data: { submissionId } };
   }
 };
 
@@ -157,21 +167,13 @@ const SubmissionService = {
  */
 const UserService = {
   getOrCreate: function(email, name, phone) {
-    const cache = CacheService.getScriptCache();
-    const cachedId = cache.get(`user_${email}`);
-    if (cachedId) return cachedId;
-
     const users = SheetUtils.readAll('Users');
     const existing = users.find(u => u.email === email);
     
-    if (existing) {
-      cache.put(`user_${email}`, existing.id, CONFIG.CACHE_TTL);
-      return existing.id;
-    }
+    if (existing) return existing.id;
 
     const newId = Utilities.getUuid();
-    SheetUtils.appendRow('Users', [newId, name, email, phone, "servant", new Date().toISOString()]);
-    cache.put(`user_${email}`, newId, CONFIG.CACHE_TTL);
+    SheetUtils.appendRow('Users', [newId, name, email, phone, "servant", new Date()]);
     return newId;
   }
 };
@@ -182,7 +184,8 @@ const UserService = {
 const LessonService = {
   getByCourse: function(courseId) {
     const lessons = SheetUtils.readAll('Lessons');
-    return lessons.filter(l => l.course_id === courseId).sort((a, b) => a.order - b.order);
+    const data = lessons.filter(l => l.course_id === courseId).sort((a, b) => a.order - b.order);
+    return { success: true, data: data };
   }
 };
 
@@ -214,14 +217,14 @@ const SheetUtils = {
     const data = sheet.getDataRange().getValues();
     for (let i = 1; i < data.length; i++) {
       if (data[i][0] === id) {
-        sheet.getRange(i + 1, 5).setValue(status); // Column 5 is 'status'
+        sheet.getRange(i + 1, 5).setValue(status);
         break;
       }
     }
   }
 };
 
-function jsonResponse(data, code = 200) {
+function json(data, code = 200) {
   return ContentService.createTextOutput(JSON.stringify(data))
     .setMimeType(ContentService.MimeType.JSON);
 }
