@@ -15,7 +15,7 @@ export const registrationSchema = z.object({
   email: z.string().email("Invalid email address"),
   phone: z
     .string()
-    .min(11, "Phone number must be 11 digits")
+    .min(8, "Phone number must be 11 digits")
     .max(11, "Phone number must be 11 digits"),
   paymentReference: z.string().min(1, "Payment reference is required"),
   DOB: z.string().min(1, "Date of birth is required"),
@@ -28,6 +28,30 @@ export const loginSchema = z.object({
     .min(11, "Phone number must be 11 digits")
     .max(11, "Phone number must be 11 digits"),
 })
+
+export function normalizePhoneNumber(phone: string): string {
+  // Remove all non-digits
+  let cleaned = phone.replace(/\D/g, "")
+
+  // Egyptian logic:
+  // If it starts with 0 and has 11 digits (e.g., 01211730727), replace 0 with 20
+  if (cleaned.startsWith("0") && cleaned.length === 11) {
+    return "2" + cleaned
+  }
+
+  // If it starts with 1 and has 10 digits (e.g., 1211730727), prepend 20
+  if (cleaned.startsWith("1") && cleaned.length === 10) {
+    return "20" + cleaned
+  }
+
+  // If it already starts with 20 and has 12 digits, it's already normalized
+  if (cleaned.startsWith("20") && cleaned.length === 12) {
+    return cleaned
+  }
+
+  // Fallback: return as is if it doesn't match standard Egyptian mobile patterns
+  return cleaned
+}
 
 export type RegistrationFormValues = z.infer<typeof registrationSchema>
 export type LoginFormValues = z.infer<typeof loginSchema>

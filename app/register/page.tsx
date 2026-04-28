@@ -22,6 +22,7 @@ import {
   generateWhatsAppLink,
   registrationSchema,
   loginSchema,
+  normalizePhoneNumber,
   type RegistrationFormValues,
 } from "@/lib/registration"
 import Link from "next/link"
@@ -122,16 +123,18 @@ export default function RegisterPage() {
     setSubmissionStatus(null)
     setWhatsAppUrl("")
 
+    const normalizedPhone = normalizePhoneNumber(values.phone)
+
     if (authMode === "login") {
       try {
         const result = await checkUserAccess({
-          phone: values.phone,
+          phone: normalizedPhone,
         })
 
         if (result.data?.hasAccess) {
           storeAccess({
             email: result.data.user?.email || "",
-            phone: values.phone,
+            phone: normalizedPhone,
             submissionId: result.data.submission?.id || "",
             teamName: result.data.teamName || "",
           })
@@ -172,13 +175,18 @@ export default function RegisterPage() {
     try {
       const result = await submitToGas({
         ...values,
+        phone: normalizedPhone,
+        members: values.members.map((m) => ({
+          ...m,
+          PhoneNumber: normalizePhoneNumber(m.PhoneNumber),
+        })),
         type: "team_registration",
       })
       const submissionId = result.data?.submissionId || uniqueId
 
       const redirectUrl = generateWhatsAppLink(ADMIN_WHATSAPP_PHONE, {
         name: values.name,
-        phone: values.phone,
+        phone: normalizedPhone,
         paymentReference: values.paymentReference,
         uniqueId,
         timestamp,
@@ -187,7 +195,7 @@ export default function RegisterPage() {
       // Update state and persistence
       storeAccess({
         email: values.email,
-        phone: values.phone,
+        phone: normalizedPhone,
         submissionId,
         teamName: values.teamName,
       })
@@ -359,13 +367,13 @@ export default function RegisterPage() {
               {/* Servant Section - 2x2 Grid */}
               <div className="space-y-6">
                 <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
-                  <User className="h-5 w-5 text-[#2E4A7D]" />
-                  <h2 className="text-xl font-bold text-slate-800">
+                  <User className="h-5 w-5 text-blue-700" />
+                  <h2 className="text-xl font-bold text-blue-800">
                     {authMode === "signup" ? "Servant Identification" : "Login"}
                   </h2>
                 </div>
 
-                <div className="grid grid-cols-1 gap-x-8 gap-y-6 md:grid-cols-2">
+                <div className={authMode === "login" ? "flex flex-col items-center justify-center" : "grid grid-cols-1 gap-x-8 gap-y-6 md:grid-cols-2"}>
                   {authMode === "signup" && (
                     <>
                       <div className="space-y-2">
@@ -433,19 +441,28 @@ export default function RegisterPage() {
                     </div>
                   )}
 
-                  <div className="space-y-2">
+                  <div className={`space-y-2 ${authMode === "login" ? "w-full max-w-sm text-center" : ""}`}>
                     <Label
                       htmlFor="phone"
                       className="text-sm font-semibold text-slate-700"
                     >
                       Phone Number
                     </Label>
-                    <Input
-                      id="phone"
-                      placeholder="11 digit number"
-                      className="border-slate-200 bg-slate-50 transition-all focus:bg-white"
-                      {...form.register("phone")}
-                    />
+                    <div className="relative">
+                      <Input
+                        id="phone"
+                        placeholder="01XXXXXXXXX"
+                        className="border-slate-200 bg-slate-50 transition-all focus:bg-white pl-12"
+                        {...form.register("phone", {
+                          onChange: (e) => {
+                            e.target.value = e.target.value.replace(/\D/g, "").slice(0, 11)
+                          }
+                        })}
+                      />
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm font-bold border-r border-slate-300 pr-2">
+                        +20
+                      </span>
+                    </div>
                     {form.formState.errors.phone && (
                       <p className="mt-1 text-xs text-red-600">
                         {form.formState.errors.phone.message}

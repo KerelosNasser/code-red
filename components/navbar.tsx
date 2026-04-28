@@ -36,6 +36,10 @@ export function Navbar() {
     setIsMobileMenuOpen(false)
   }, [pathname])
 
+  if (pathname === "/register") {
+    return null
+  }
+
   const linkStyle = (path: string) =>
     `relative text-lg font-bold transition-all duration-300 w-fit
     ${pathname === path ? "text-white" : "text-white/80"} 
