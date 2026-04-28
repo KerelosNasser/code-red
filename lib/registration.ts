@@ -25,7 +25,7 @@ export const registrationSchema = z.object({
 export const loginSchema = z.object({
   phone: z
     .string()
-    .min(11, "Phone number must be 11 digits")
+    .min(8, "Phone number must be 11 digits")
     .max(11, "Phone number must be 11 digits"),
 })
 
