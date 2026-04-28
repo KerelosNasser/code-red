@@ -125,15 +125,15 @@ export default function RegisterPage() {
     if (authMode === "login") {
       try {
         const result = await checkUserAccess({
-          email: values.email,
           phone: values.phone,
         })
 
         if (result.data?.hasAccess) {
           storeAccess({
-            email: values.email,
+            email: result.data.user?.email || "",
             phone: values.phone,
             submissionId: result.data.submission?.id || "",
+            teamName: result.data.teamName || "",
           })
           window.dispatchEvent(new Event("dara_access_granted"))
           setHasSubmitted(true)
@@ -189,6 +189,7 @@ export default function RegisterPage() {
         email: values.email,
         phone: values.phone,
         submissionId,
+        teamName: values.teamName,
       })
       window.dispatchEvent(new Event("dara_access_granted"))
 
@@ -287,13 +288,6 @@ export default function RegisterPage() {
 
   return (
     <div className="relative min-h-screen bg-slate-50">
-      {/* Back button */}
-      <div className="absolute top-8 left-8 z-20">
-        <Link href="/" className="flex items-center gap-2 text-slate-600 hover:text-[#2E4A7D] transition-colors font-medium">
-          <ArrowLeft className="h-5 w-5" />
-          <span>Back to Home</span>
-        </Link>
-      </div>
 
       <div className="relative z-10 px-4 py-12">
         <motion.div
@@ -331,8 +325,8 @@ export default function RegisterPage() {
                 variant={authMode === "signup" ? "default" : "outline"}
                 className={
                   authMode === "signup"
-                    ? "bg-[#2E4A7D] text-white hover:bg-[#1f3358] w-32"
-                    : "text-slate-600 border-slate-300 hover:bg-slate-50 w-32"
+                    ? "bg-red-700 text-white hover:bg-red-800 w-32"
+                    : "text-white border-slate-300 hover:text-white hover:bg-red-800 bg-red-700 w-32"
                 }
                 onClick={() => {
                   setAuthMode("signup")
@@ -347,8 +341,8 @@ export default function RegisterPage() {
                 variant={authMode === "login" ? "default" : "outline"}
                 className={
                   authMode === "login"
-                    ? "bg-[#2E4A7D] text-white hover:bg-[#1f3358] w-32"
-                    : "text-slate-600 border-slate-300 hover:bg-slate-50 w-32"
+                    ? "bg-yellow-600 text-white hover:bg-yellow-600 w-32"
+                    : "text-white border-slate-300 hover:bg-yellow-500 bg-yellow-600 w-32 hover:text-white"
                 }
                 onClick={() => {
                   setAuthMode("login")
@@ -367,53 +361,77 @@ export default function RegisterPage() {
                 <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
                   <User className="h-5 w-5 text-[#2E4A7D]" />
                   <h2 className="text-xl font-bold text-slate-800">
-                    Servant Identification
+                    {authMode === "signup" ? "Servant Identification" : "Login"}
                   </h2>
                 </div>
 
                 <div className="grid grid-cols-1 gap-x-8 gap-y-6 md:grid-cols-2">
                   {authMode === "signup" && (
+                    <>
+                      <div className="space-y-2">
+                        <Label
+                          htmlFor="teamName"
+                          className="text-sm font-semibold text-[#2E4A7D]"
+                        >
+                          Team Name
+                        </Label>
+                        <Input
+                          id="teamName"
+                          placeholder="Enter Team Name"
+                          className="border-slate-200 bg-slate-50 transition-all focus:bg-white"
+                          {...form.register("teamName")}
+                        />
+                        {form.formState.errors.teamName && (
+                          <p className="mt-1 text-xs text-red-600">
+                            {form.formState.errors.teamName.message}
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label
+                          htmlFor="name"
+                          className="text-sm font-semibold text-[#2E4A7D]"
+                        >
+                          Full Name
+                        </Label>
+                        <Input
+                          id="name"
+                          placeholder="Enter Servant Name"
+                          className="border-slate-200 bg-slate-50 transition-all focus:bg-white"
+                          {...form.register("name")}
+                        />
+                        {form.formState.errors.name && (
+                          <p className="mt-1 text-xs text-red-600">
+                            {form.formState.errors.name.message}
+                          </p>
+                        )}
+                      </div>
+                    </>
+                  )}
+
+                  {authMode === "signup" && (
                     <div className="space-y-2">
                       <Label
-                        htmlFor="name"
-                        className="text-sm font-semibold text-[#2E4A7D]"
+                        htmlFor="email"
+                        className="text-sm font-semibold text-slate-700"
                       >
-                        Full Name
+                        Email Address
                       </Label>
                       <Input
-                        id="name"
-                        placeholder="Enter Servant Name"
+                        id="email"
+                        type="email"
+                        placeholder="example@church.com"
                         className="border-slate-200 bg-slate-50 transition-all focus:bg-white"
-                        {...form.register("name")}
+                        {...form.register("email")}
                       />
-                      {form.formState.errors.name && (
+                      {form.formState.errors.email && (
                         <p className="mt-1 text-xs text-red-600">
-                          {form.formState.errors.name.message}
+                          {form.formState.errors.email.message}
                         </p>
                       )}
                     </div>
                   )}
-
-                  <div className="space-y-2">
-                    <Label
-                      htmlFor="email"
-                      className="text-sm font-semibold text-slate-700"
-                    >
-                      Email Address
-                    </Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      placeholder="example@church.com"
-                      className="border-slate-200 bg-slate-50 transition-all focus:bg-white"
-                      {...form.register("email")}
-                    />
-                    {form.formState.errors.email && (
-                      <p className="mt-1 text-xs text-red-600">
-                        {form.formState.errors.email.message}
-                      </p>
-                    )}
-                  </div>
 
                   <div className="space-y-2">
                     <Label
@@ -597,7 +615,7 @@ export default function RegisterPage() {
 
               <Button
                 type="submit"
-                className="flex h-14 w-full gap-2 rounded-lg bg-[#2E4A7D] text-lg font-bold text-white shadow-lg shadow-blue-100 transition-all hover:bg-[#2E4A7D]/90"
+                className="flex h-14 w-full gap-2 rounded-lg bg-red-800 text-lg font-bold text-white shadow-lg shadow-blue-100 transition-all hover:bg-red-600"
                 disabled={isSubmitting || hasSubmitted}
               >
                 {isSubmitting ? (

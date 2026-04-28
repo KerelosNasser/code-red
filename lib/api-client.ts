@@ -18,7 +18,7 @@ export interface SubmissionPayload {
 }
 
 export interface AccessCheckPayload {
-  email: string
+  email?: string
   phone: string
 }
 
@@ -68,9 +68,14 @@ export async function checkUserAccess(payload: AccessCheckPayload) {
   if (!GAS_URL) throw new Error("GAS_URL is not configured")
 
   const { email, phone } = payload
-  const url = `${GAS_URL}?action=checkUser&token=${encodeURIComponent(
+  let url = `${GAS_URL}?action=checkUser&token=${encodeURIComponent(
     GAS_SECRET
-  )}&email=${encodeURIComponent(email)}&phone=${encodeURIComponent(phone)}`
+  )}&phone=${encodeURIComponent(phone)}`
+  
+  if (email) {
+    url += `&email=${encodeURIComponent(email)}`
+  }
+  
   const response = await fetch(url)
   return parseGasResponse(response, "User check failed")
 }

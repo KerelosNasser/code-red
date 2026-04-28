@@ -10,6 +10,7 @@ export const memberSchema = z.object({
 })
 
 export const registrationSchema = z.object({
+  teamName: z.string().min(1, "Team name is required"),
   name: z.string().min(1, "Servant name is required"),
   email: z.string().email("Invalid email address"),
   phone: z
@@ -22,7 +23,6 @@ export const registrationSchema = z.object({
 })
 
 export const loginSchema = z.object({
-  email: z.string().email("Invalid email address"),
   phone: z
     .string()
     .min(11, "Phone number must be 11 digits")

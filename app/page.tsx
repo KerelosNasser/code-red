@@ -16,6 +16,7 @@ import {
 import {
   getStoredAccess,
   clearStoredAccess,
+  storeAccess,
   isSessionValidated,
   setSessionValidated,
   type StoredAccess,
@@ -26,6 +27,7 @@ import {
   getProductsFromGas,
 } from "@/lib/api-client"
 import { Button } from "@/components/ui/button"
+import { useRouter } from "next/navigation"
 
 interface Course {
   id: string
@@ -42,6 +44,7 @@ interface Product {
 }
 
 export default function HomePage() {
+  const router = useRouter()
   const [access, setAccess] = useState<StoredAccess | null>(null)
   const [isValidated, setIsValidated] = useState(false)
   const [featuredCourses, setFeaturedCourses] = useState<Course[]>([])
@@ -51,6 +54,12 @@ export default function HomePage() {
   useEffect(() => {
     const init = async () => {
       const stored = getStoredAccess()
+      
+      if (!stored) {
+        router.push("/register")
+        return
+      }
+      
       setAccess(stored)
 
       try {
@@ -63,11 +72,19 @@ export default function HomePage() {
             if (result.data?.hasAccess) {
               setIsValidated(true)
               setSessionValidated(true)
+              
+              // Update stored team name if it changed
+              if (result.data.teamName && result.data.teamName !== stored.teamName) {
+                const updatedAccess = { ...stored, teamName: result.data.teamName }
+                storeAccess(updatedAccess)
+                setAccess(updatedAccess)
+              }
             } else {
               // Rule: If backend cannot confirm it, clear local access
               clearStoredAccess()
               setIsValidated(false)
               setAccess(null)
+              router.push("/register")
             }
           } catch (error) {
             // Rule: home page shows the actual backend error message (or logs it)
@@ -77,6 +94,7 @@ export default function HomePage() {
             clearStoredAccess()
             setIsValidated(false)
             setAccess(null)
+            router.push("/register")
           }
         }
 
@@ -97,7 +115,7 @@ export default function HomePage() {
     }
 
     void init()
-  }, [])
+  }, [router])
 
   return (
     <div className="flex min-h-screen flex-col bg-[#F8FAFC]">
@@ -132,8 +150,12 @@ export default function HomePage() {
               transition={{ delay: 0.2 }}
               className="mb-2 text-4xl leading-tight font-bold text-slate-900 md:text-6xl"
             >
-              Empowering the Next Generation of
-              <span className="text-[#2E4A7D]"> Robotics Engineers</span>
+              {access?.teamName ? (
+                <>Welcome, <span className="text-[#2E4A7D]">{access.teamName}</span></>
+              ) : (
+                <>Empowering the Next Generation of
+                <span className="text-[#2E4A7D]"> Robotics Engineers</span></>
+              )}
             </motion.h2>
 
             <motion.p

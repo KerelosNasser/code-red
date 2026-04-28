@@ -6,6 +6,7 @@ export type StoredAccess = {
   email: string
   phone: string
   submissionId: string
+  teamName?: string
 }
 
 export function getStoredAccess(): StoredAccess | null {
@@ -28,6 +29,7 @@ export function getStoredAccess(): StoredAccess | null {
       email: parsed.email,
       phone: parsed.phone,
       submissionId: parsed.submissionId,
+      teamName: parsed.teamName,
     }
   } catch {
     clearStoredAccess()

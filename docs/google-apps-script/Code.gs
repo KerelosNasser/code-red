@@ -295,17 +295,53 @@ const UserService = {
   },
 
   checkAccess: function(email, phone) {
-    const normalizedEmail = String(email || "").trim().toLowerCase();
     const inputPhone = String(phone || "").replace(/\D/g, '').replace(/^0+/, '');
+    
+    // 1. Check if the phone belongs to a member first
+    const members = SheetUtils.readAll("Members");
+    const memberRecord = members.find(function(m) {
+      const recordPhone = String(m.phone || "").replace(/\D/g, '').replace(/^0+/, '');
+      return recordPhone === inputPhone && recordPhone.length > 5;
+    });
+
+    if (memberRecord) {
+      const submissions = SheetUtils.readAll("Submissions");
+      const teamSubmission = submissions.find(function(s) {
+        return s.id === memberRecord.submission_id;
+      });
+
+      if (teamSubmission) {
+        let teamName = "Team";
+        try {
+          const payload = JSON.parse(teamSubmission.payload);
+          teamName = payload.teamName || teamName;
+        } catch (e) {}
+
+        return {
+          success: true,
+          data: {
+            hasAccess: true,
+            teamName: teamName,
+            submission: teamSubmission,
+            role: "member"
+          }
+        };
+      }
+    }
+
+    // 2. Check if the phone belongs to a servant (User)
+    const normalizedEmail = email ? String(email).trim().toLowerCase() : null;
     const users = SheetUtils.readAll("Users");
     const user = users.find(function(record) {
-      const emailMatches =
-        String(record.email || "").trim().toLowerCase() === normalizedEmail;
       const recordPhone = String(record.phone || "").replace(/\D/g, '').replace(/^0+/, '');
-      const phoneMatches = 
-        recordPhone === inputPhone || 
-        (recordPhone.length > 6 && inputPhone.length > 6 && (recordPhone.endsWith(inputPhone) || inputPhone.endsWith(recordPhone)));
-      return emailMatches && phoneMatches;
+      const phoneMatches = recordPhone === inputPhone && recordPhone.length > 5;
+      
+      if (normalizedEmail) {
+        const emailMatches = String(record.email || "").trim().toLowerCase() === normalizedEmail;
+        return emailMatches && phoneMatches;
+      }
+      
+      return phoneMatches;
     });
 
     if (!user) {
@@ -321,12 +357,22 @@ const UserService = {
         return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
       })[0];
 
+    let teamName = "Team";
+    if (latestSubmission) {
+      try {
+        const payload = JSON.parse(latestSubmission.payload);
+        teamName = payload.teamName || teamName;
+      } catch (e) {}
+    }
+
     return {
       success: true,
       data: {
         hasAccess: true,
         user: user,
-        submission: latestSubmission || { id: user.id }
+        teamName: teamName,
+        submission: latestSubmission || { id: user.id },
+        role: "servant"
       }
     };
   },
@@ -337,14 +383,20 @@ const UserService = {
       return { success: true, data: [] };
     }
 
-    const userId = access.data.user.id;
+    // Asset access is tied to the team's submission ID
+    const submissionId = access.data.submission.id;
     const submissions = SheetUtils.readAll("Submissions");
-    const purchases = submissions.filter(function(s) {
-      return s.user_id === userId && s.type === "purchase" && s.status === "completed";
+    
+    // Find all successful purchases for this submission (team)
+    // We treat the submission ID as the "team ID" for asset ownership
+    const teamPurchases = submissions.filter(function(s) {
+      return (s.id === submissionId || s.user_id === access.data.user?.id) && 
+             s.type === "purchase" && 
+             s.status === "completed";
     });
 
     const productIds = [];
-    purchases.forEach(function(p) {
+    teamPurchases.forEach(function(p) {
       try {
         const payload = JSON.parse(p.payload);
         if (payload.productIds && Array.isArray(payload.productIds)) {
@@ -352,9 +404,7 @@ const UserService = {
             if (productIds.indexOf(id) === -1) productIds.push(id);
           });
         }
-      } catch (e) {
-        // Ignore malformed payloads
-      }
+      } catch (e) {}
     });
 
     if (productIds.length === 0) {
