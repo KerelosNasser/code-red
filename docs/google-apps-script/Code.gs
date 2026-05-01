@@ -407,6 +407,18 @@ const SheetUtils = {
   },
 
   readAll: function(sheetName) {
+    const cache = CacheService.getScriptCache();
+    const cacheKey = "READ_ALL_" + sheetName;
+    const cached = cache.get(cacheKey);
+    
+    if (cached) {
+      try {
+        return JSON.parse(cached);
+      } catch (e) {
+        // Fallback to reading from sheet if cache is corrupt
+      }
+    }
+
     const sheet = this.getSheet(sheetName);
     const lastRow = sheet.getLastRow();
     const lastColumn = sheet.getLastColumn();
@@ -416,7 +428,7 @@ const SheetUtils = {
     const values = sheet.getRange(1, 1, lastRow, lastColumn).getValues();
     const headers = values.shift();
 
-    return values
+    const data = values
       .filter(function(row) {
         return row.some(function(value) { return value !== ""; });
       })
@@ -427,19 +439,34 @@ const SheetUtils = {
         });
         return record;
       });
+
+    try {
+      cache.put(cacheKey, JSON.stringify(data), CONFIG.CACHE_TTL || 600);
+    } catch (e) {
+      // Data might be too large for a single cache entry in some cases
+    }
+    
+    return data;
+  },
+
+  invalidateCache: function(sheetName) {
+    CacheService.getScriptCache().remove("READ_ALL_" + sheetName);
   },
 
   appendRow: function(sheetName, row) {
     this.getSheet(sheetName).appendRow(row);
+    this.invalidateCache(sheetName);
   },
 
   updateRow: function(sheetName, rowIndex, row) {
     const sheet = this.getSheet(sheetName);
     sheet.getRange(rowIndex, 1, 1, row.length).setValues([row]);
+    this.invalidateCache(sheetName);
   },
 
   deleteRow: function(sheetName, rowIndex) {
     this.getSheet(sheetName).deleteRow(rowIndex);
+    this.invalidateCache(sheetName);
   }
 };
 

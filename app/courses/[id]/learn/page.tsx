@@ -3,6 +3,12 @@
 import React, { useEffect, useState, useMemo } from "react"
 import Link from "next/link"
 import { useParams, useRouter, useSearchParams } from "next/navigation"
+import dynamic from "next/dynamic"
+
+const Plyr = dynamic(() => import("plyr-react").then((mod) => mod.Plyr), {
+  ssr: false,
+})
+
 import {
   ChevronLeft,
   Menu,
@@ -17,7 +23,6 @@ import {
 } from "lucide-react"
 import * as Accordion from "@radix-ui/react-accordion"
 import * as Tabs from "@radix-ui/react-tabs"
-import { Plyr } from "plyr-react"
 import { getCoursesFromGas } from "@/lib/api-client"
 import { getStoredAccess } from "@/lib/access-storage"
 import { MOCK_COURSES } from "@/lib/mock-data"
@@ -25,6 +30,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { cn } from "@/lib/utils"
+import { Suspense } from "react"
 
 interface Lesson {
   id: string
@@ -50,6 +56,18 @@ interface Course {
 }
 
 export default function CoursePlayerPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex min-h-screen items-center justify-center bg-slate-950">
+        <div className="h-12 w-12 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+      </div>
+    }>
+      <CoursePlayerContent />
+    </Suspense>
+  )
+}
+
+function CoursePlayerContent() {
   const params = useParams()
   const searchParams = useSearchParams()
   const router = useRouter()

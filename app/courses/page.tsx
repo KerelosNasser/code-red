@@ -1,9 +1,7 @@
-"use client"
-
-import React, { useEffect, useState } from "react"
+import React from "react"
 import Link from "next/link"
 import { BookOpen, Clock, BarChart, ArrowRight } from "lucide-react"
-import { getCoursesFromGas } from "@/lib/api-client"
+import { getCachedCourses } from "@/lib/server-api"
 import { MOCK_COURSES } from "@/lib/mock-data"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -16,27 +14,19 @@ interface Course {
   time?: string
 }
 
-export default function CoursesPage() {
-  const [courses, setCourses] = useState<Course[]>([])
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    const fetchCourses = async () => {
-      try {
-        const res = await getCoursesFromGas()
-        if (res.success && res.data?.length > 0) {
-          setCourses(res.data)
-        } else {
-          setCourses(MOCK_COURSES)
-        }
-      } catch {
-        setCourses(MOCK_COURSES)
-      } finally {
-        setLoading(false)
-      }
+export default async function CoursesPage() {
+  let courses: Course[] = []
+  
+  try {
+    const res = await getCachedCourses()
+    if (res.success && res.data?.length > 0) {
+      courses = res.data
+    } else {
+      courses = MOCK_COURSES
     }
-    void fetchCourses()
-  }, [])
+  } catch {
+    courses = MOCK_COURSES
+  }
 
   return (
     <div className="min-h-screen bg-white">
@@ -80,22 +70,7 @@ export default function CoursesPage() {
       </div>
       {/* Courses */}
       <section className="container mx-auto px-4 py-10">
-        {loading ? (
-          <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
-            {[1, 2, 3].map((i) => (
-              <div
-                key={i}
-                className="rounded-2xl border border-slate-200 bg-white shadow-sm"
-              >
-                <div className="h-48 animate-pulse bg-slate-100" />
-                <div className="space-y-4 p-6">
-                  <div className="h-6 w-32 animate-pulse rounded bg-slate-200" />
-                  <div className="h-4 w-full animate-pulse rounded bg-slate-200" />
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : courses.length > 0 ? (
+        {courses.length > 0 ? (
           <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
             {courses.map((course) => (
               <div

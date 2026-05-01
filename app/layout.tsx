@@ -1,4 +1,5 @@
 import { Geist_Mono, Raleway, Crimson_Pro } from "next/font/google"
+import { Suspense } from "react"
 
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
@@ -36,7 +37,9 @@ export default function RootLayout({
         suppressHydrationWarning
       >
         <ThemeProvider>
-          <Navbar />
+          <Suspense fallback={<div className="h-20 bg-blue-950" />}>
+            <Navbar />
+          </Suspense>
           <main className="flex-1">{children}</main>
           <Toaster richColors position="top-center" />
         </ThemeProvider>
