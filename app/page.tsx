@@ -16,7 +16,6 @@ import {
 import {
   getStoredAccess,
   clearStoredAccess,
-  storeAccess,
   isSessionValidated,
   setSessionValidated,
   type StoredAccess,
@@ -54,16 +53,9 @@ export default function HomePage() {
   useEffect(() => {
     const init = async () => {
       const stored = getStoredAccess()
-      
-      if (!stored) {
-        router.push("/register")
-        return
-      }
-      
       setAccess(stored)
 
       try {
-        // Use cached session validation to avoid slow GAS calls
         if (stored && isSessionValidated()) {
           setIsValidated(true)
         } else if (stored) {
@@ -72,29 +64,13 @@ export default function HomePage() {
             if (result.data?.hasAccess) {
               setIsValidated(true)
               setSessionValidated(true)
-              
-              // Update stored team name if it changed
-              if (result.data.teamName && result.data.teamName !== stored.teamName) {
-                const updatedAccess = { ...stored, teamName: result.data.teamName }
-                storeAccess(updatedAccess)
-                setAccess(updatedAccess)
-              }
             } else {
-              // Rule: If backend cannot confirm it, clear local access
               clearStoredAccess()
               setIsValidated(false)
               setAccess(null)
-              router.push("/register")
             }
           } catch (error) {
-            // Rule: home page shows the actual backend error message (or logs it)
-            const message =
-              error instanceof Error ? error.message : "Verification failed"
-            console.error("Access verification error:", message)
-            clearStoredAccess()
-            setIsValidated(false)
-            setAccess(null)
-            router.push("/register")
+            console.error("Access verification error:", error)
           }
         }
 
@@ -116,6 +92,8 @@ export default function HomePage() {
 
     void init()
   }, [router])
+
+  const isAdmin = access?.role === 'admin'
 
   return (
     <div className="flex min-h-screen flex-col bg-[#F8FAFC]">
@@ -150,8 +128,8 @@ export default function HomePage() {
               transition={{ delay: 0.2 }}
               className="mb-2 text-4xl leading-tight font-bold text-slate-900 md:text-6xl"
             >
-              {access?.teamName ? (
-                <>Welcome, <span className="text-[#2E4A7D]">{access.teamName}</span></>
+              {access?.firstName ? (
+                <>Welcome, <span className="text-[#2E4A7D]">{access.firstName}</span></>
               ) : (
                 <>Empowering the Next Generation of
                 <span className="text-[#2E4A7D]"> Robotics Engineers</span></>
@@ -175,27 +153,25 @@ export default function HomePage() {
               transition={{ delay: 0.4 }}
               className="flex flex-col gap-4 sm:flex-row"
             >
-              {access && isValidated ? (
+              <Button
+                asChild
+                size="lg"
+                className="h-14 rounded-xl bg-[#2E4A7D] px-8 text-lg font-bold text-white shadow-lg shadow-blue-100 hover:bg-[#2E4A7D]/90"
+              >
+                <Link href="/courses" className="flex items-center gap-2">
+                  Explore Courses <ArrowRight className="h-5 w-5" />
+                </Link>
+              </Button>
+              
+              {!isValidated && (
                 <Button
                   asChild
+                  variant="outline"
                   size="lg"
-                  className="h-14 rounded-xl bg-[#2E4A7D] px-8 text-lg font-bold text-white shadow-lg shadow-blue-100 hover:bg-[#2E4A7D]/90"
+                  className="h-14 rounded-xl border-slate-200 px-8 text-lg font-bold text-slate-600 hover:bg-slate-50"
                 >
-                  <Link href="/courses" className="flex items-center gap-2">
-                    Continue Learning <ArrowRight className="h-5 w-5" />
-                  </Link>
+                  <Link href="/register">Student Login</Link>
                 </Button>
-              ) : (
-                <>
-                  <Button
-                    asChild
-                    variant="outline"
-                    size="lg"
-                    className="h-14 rounded-xl border-slate-200 px-8 text-lg font-bold text-slate-600 hover:bg-slate-50"
-                  >
-                    <Link href="/about">Learn More</Link>
-                  </Button>
-                </>
               )}
             </motion.div>
           </div>
@@ -283,84 +259,86 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Featured Products */}
-      <section className="relative overflow-hidden bg-slate-900 py-20 text-white">
-        <div className="absolute top-0 left-0 h-1 w-full bg-gradient-to-r from-[#2E4A7D] via-[#F5A623] to-[#2E4A7D]" />
+      {/* Featured Products - Only visible to Admins as Shop is restricted */}
+      {isAdmin && (
+        <section className="relative overflow-hidden bg-slate-900 py-20 text-white">
+          <div className="absolute top-0 left-0 h-1 w-full bg-gradient-to-r from-[#2E4A7D] via-[#F5A623] to-[#2E4A7D]" />
 
-        <div className="relative z-10 container mx-auto px-4">
-          <div className="mb-12 flex items-end justify-between border-b border-white/10 pb-6">
-            <div className="space-y-2">
-              <div className="flex items-center gap-2 text-sm font-bold tracking-wider text-[#F5A623] uppercase">
-                <ShoppingCart className="h-4 w-4" />
-                <span>Components</span>
+          <div className="relative z-10 container mx-auto px-4">
+            <div className="mb-12 flex items-end justify-between border-b border-white/10 pb-6">
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-sm font-bold tracking-wider text-[#F5A623] uppercase">
+                  <ShoppingCart className="h-4 w-4" />
+                  <span>Components</span>
+                </div>
+                <h3 className="text-3xl font-bold">Specialized Store</h3>
               </div>
-              <h3 className="text-3xl font-bold">Specialized Store</h3>
+              <Link
+                href="/store"
+                className="group flex items-center gap-1 font-bold text-white/80 transition-colors hover:text-white"
+              >
+                Explore catalog{" "}
+                <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+              </Link>
             </div>
-            <Link
-              href="/store"
-              className="group flex items-center gap-1 font-bold text-white/80 transition-colors hover:text-white"
-            >
-              Explore catalog{" "}
-              <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-            </Link>
-          </div>
 
-          <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
-            {loading ? (
-              [1, 2, 3].map((i) => (
-                <div
-                  key={i}
-                  className="h-[450px] animate-pulse rounded-2xl bg-white/5"
-                />
-              ))
-            ) : featuredProducts.length > 0 ? (
-              featuredProducts.map((product) => (
-                <div
-                  key={product.id}
-                  className="group overflow-hidden rounded-2xl border border-white/10 bg-white/5 transition-all hover:bg-white/10"
-                >
-                  <div className="relative flex aspect-square items-center justify-center bg-white/10">
-                    {product.image_url ? (
-                      <Image
-                        src={product.image_url}
-                        alt={product.title}
-                        fill
-                        className="object-cover transition-transform group-hover:scale-105"
-                      />
-                    ) : (
-                      <ShoppingCart className="h-16 w-16 text-white/20" />
-                    )}
-                  </div>
-                  <div className="p-6">
-                    <h4 className="mb-2 text-xl font-bold">{product.title}</h4>
-                    <p className="mb-6 line-clamp-2 text-sm text-white/60">
-                      {product.description}
-                    </p>
-                    <div className="flex items-center justify-between">
-                      <span className="text-2xl font-bold text-[#F5A623]">
-                        {product.price ? `$${product.price}` : "TBA"}
-                      </span>
-                      <Button
-                        asChild
-                        size="sm"
-                        className="bg-white font-bold text-slate-900 transition-colors hover:bg-[#F5A623] hover:text-white"
-                      >
-                        <Link href="/store">View Details</Link>
-                      </Button>
+            <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
+              {loading ? (
+                [1, 2, 3].map((i) => (
+                  <div
+                    key={i}
+                    className="h-[450px] animate-pulse rounded-2xl bg-white/5"
+                  />
+                ))
+              ) : featuredProducts.length > 0 ? (
+                featuredProducts.map((product) => (
+                  <div
+                    key={product.id}
+                    className="group overflow-hidden rounded-2xl border border-white/10 bg-white/5 transition-all hover:bg-white/10"
+                  >
+                    <div className="relative flex aspect-square items-center justify-center bg-white/10">
+                      {product.image_url ? (
+                        <Image
+                          src={product.image_url}
+                          alt={product.title}
+                          fill
+                          className="object-cover transition-transform group-hover:scale-105"
+                        />
+                      ) : (
+                        <ShoppingCart className="h-16 w-16 text-white/20" />
+                      )}
+                    </div>
+                    <div className="p-6">
+                      <h4 className="mb-2 text-xl font-bold">{product.title}</h4>
+                      <p className="mb-6 line-clamp-2 text-sm text-white/60">
+                        {product.description}
+                      </p>
+                      <div className="flex items-center justify-between">
+                        <span className="text-2xl font-bold text-[#F5A623]">
+                          {product.price ? `$${product.price}` : "TBA"}
+                        </span>
+                        <Button
+                          asChild
+                          size="sm"
+                          className="bg-white font-bold text-slate-900 transition-colors hover:bg-[#F5A623] hover:text-white"
+                        >
+                          <Link href="/store">View Details</Link>
+                        </Button>
+                      </div>
                     </div>
                   </div>
+                ))
+              ) : (
+                <div className="col-span-full rounded-2xl border border-white/10 bg-white/5 py-20 text-center">
+                  <p className="font-medium text-white/40">
+                    New component kits are being prepared.
+                  </p>
                 </div>
-              ))
-            ) : (
-              <div className="col-span-full rounded-2xl border border-white/10 bg-white/5 py-20 text-center">
-                <p className="font-medium text-white/40">
-                  New component kits are being prepared.
-                </p>
-              </div>
-            )}
+              )}
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* Trust Bar */}
       <section className="border-t border-slate-100 bg-white py-12">

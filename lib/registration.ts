@@ -1,32 +1,21 @@
 import z from "zod"
 
-export const memberSchema = z.object({
-  name: z.string().min(1, "Member name is required"),
-  DOB: z.string().min(1, "Member date of birth is required"),
-  PhoneNumber: z
+export const loginSchema = z.object({
+  phone: z
     .string()
     .min(11, "Phone number must be 11 digits")
     .max(11, "Phone number must be 11 digits"),
 })
 
-export const registrationSchema = z.object({
-  teamName: z.string().min(1, "Team name is required"),
-  name: z.string().min(1, "Servant name is required"),
-  email: z.string().email("Invalid email address"),
+export const userUpsertSchema = z.object({
+  firstName: z.string().min(1, "First name is required"),
+  lastName: z.string().min(1, "Last name is required"),
   phone: z
     .string()
-    .min(8, "Phone number must be 11 digits")
+    .min(11, "Phone number must be 11 digits")
     .max(11, "Phone number must be 11 digits"),
-  paymentReference: z.string().min(1, "Payment reference is required"),
-  DOB: z.string().min(1, "Date of birth is required"),
-  members: z.array(memberSchema).max(15, "Maximum 15 members allowed"),
-})
-
-export const loginSchema = z.object({
-  phone: z
-    .string()
-    .min(8, "Phone number must be 11 digits")
-    .max(11, "Phone number must be 11 digits"),
+  role: z.enum(["admin", "servant", "member"]),
+  teamName: z.string().optional(),
 })
 
 export function normalizePhoneNumber(phone: string): string {
@@ -34,7 +23,7 @@ export function normalizePhoneNumber(phone: string): string {
   let cleaned = phone.replace(/\D/g, "")
 
   // Egyptian logic:
-  // If it starts with 0 and has 11 digits (e.g., 01211730727), replace 0 with 20
+  // If it starts with 0 and has 11 digits (e.g., 01211730727), replace 0 with 2
   if (cleaned.startsWith("0") && cleaned.length === 11) {
     return "2" + cleaned
   }
@@ -44,7 +33,7 @@ export function normalizePhoneNumber(phone: string): string {
     return "20" + cleaned
   }
 
-  // If it already starts with 20 and has 12 digits, it's already normalized
+  // If it already starts with 2 and has 12 digits (e.g. 2012...), it's normalized
   if (cleaned.startsWith("20") && cleaned.length === 12) {
     return cleaned
   }
@@ -53,37 +42,5 @@ export function normalizePhoneNumber(phone: string): string {
   return cleaned
 }
 
-export type RegistrationFormValues = z.infer<typeof registrationSchema>
 export type LoginFormValues = z.infer<typeof loginSchema>
-
-export type WhatsAppSubmissionData = {
-  name: string
-  phone: string
-  paymentReference: string
-  uniqueId: string
-  timestamp: string
-}
-
-export function generateSubmissionId() {
-  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
-    return crypto.randomUUID()
-  }
-
-  return `PAY-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
-}
-
-export function generateWhatsAppLink(
-  adminPhone: string,
-  data: WhatsAppSubmissionData
-) {
-  const message = `New Payment Submission
-Name: ${data.name}
-Phone: ${data.phone}
-Payment Ref: ${data.paymentReference}
-ID: ${data.uniqueId}
-Time: ${data.timestamp}
-
-I have completed payment via InstaPay. Please verify.`
-
-  return `https://wa.me/${adminPhone}?text=${encodeURIComponent(message)}`
-}
+export type UserUpsertValues = z.infer<typeof userUpsertSchema>

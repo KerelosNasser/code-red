@@ -1,24 +1,18 @@
 export const GAS_URL = process.env.NEXT_PUBLIC_GAS_URL || ""
 export const GAS_SECRET = process.env.NEXT_PUBLIC_GAS_SECRET_KEY || ""
 
-export interface Member {
-  name: string
-  DOB: string
-  PhoneNumber: string
-}
-
-export interface SubmissionPayload {
-  name: string
-  email: string
+export interface User {
+  id: string
+  first_name: string
+  last_name: string
   phone: string
-  paymentReference: string
-  DOB: string
-  members: Member[]
-  type?: string
+  role: 'admin' | 'servant' | 'member'
+  team_name: string
+  managed_by: string
+  created_at: string
 }
 
 export interface AccessCheckPayload {
-  email?: string
   phone: string
 }
 
@@ -31,50 +25,19 @@ async function parseGasResponse(response: Response, fallbackMessage: string) {
 
   if (result.success === false) {
     const errorMessage = result.error || fallbackMessage
-
-    if (errorMessage === "Invalid action") {
-      throw new Error(
-        "Google Apps Script deployment is out of date. Deploy the latest docs/google-apps-script/Code.gs, then run setupDatabase."
-      )
-    }
-
     throw new Error(errorMessage)
   }
 
   return result
 }
 
-export async function submitToGas(payload: SubmissionPayload) {
-  if (!GAS_URL) throw new Error("GAS_URL is not configured")
-
-  const response = await fetch(GAS_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "text/plain;charset=utf-8",
-    },
-    body: JSON.stringify({
-      action: "submitForm",
-      token: GAS_SECRET,
-      payload,
-      data: payload,
-      ...payload,
-    }),
-  })
-
-  return parseGasResponse(response, "Submission failed")
-}
-
 export async function checkUserAccess(payload: AccessCheckPayload) {
   if (!GAS_URL) throw new Error("GAS_URL is not configured")
 
-  const { email, phone } = payload
-  let url = `${GAS_URL}?action=checkUser&token=${encodeURIComponent(
+  const { phone } = payload
+  const url = `${GAS_URL}?action=checkUser&token=${encodeURIComponent(
     GAS_SECRET
   )}&phone=${encodeURIComponent(phone)}`
-  
-  if (email) {
-    url += `&email=${encodeURIComponent(email)}`
-  }
   
   const response = await fetch(url)
   return parseGasResponse(response, "User check failed")
@@ -95,26 +58,77 @@ export async function getProductsFromGas() {
 export async function getUserAssetsFromGas(payload: AccessCheckPayload) {
   if (!GAS_URL) throw new Error("GAS_URL is not configured")
 
-  const { email, phone } = payload
+  const { phone } = payload
   const url = `${GAS_URL}?action=getUserAssets&token=${encodeURIComponent(
     GAS_SECRET
-  )}&email=${encodeURIComponent(email)}&phone=${encodeURIComponent(phone)}`
+  )}&phone=${encodeURIComponent(phone)}`
   const response = await fetch(url)
   return parseGasResponse(response, "Failed to fetch user assets")
 }
 
-export async function submitPurchase(
-  payload: { productIds: string[] },
-  accessPayload: AccessCheckPayload
-) {
-  return submitToGas({
-    name: "",
-    email: accessPayload.email,
-    phone: accessPayload.phone,
-    paymentReference: "simulated",
-    DOB: "",
-    members: [],
-    type: "purchase",
-    ...payload,
+export async function getManagedUsers(adminPhone: string) {
+  if (!GAS_URL) throw new Error("GAS_URL is not configured")
+
+  const url = `${GAS_URL}?action=getManagedUsers&token=${encodeURIComponent(
+    GAS_SECRET
+  )}&adminPhone=${encodeURIComponent(adminPhone)}`
+  const response = await fetch(url)
+  return parseGasResponse(response, "Failed to fetch managed users")
+}
+
+export async function upsertUser(payload: Partial<User>) {
+  if (!GAS_URL) throw new Error("GAS_URL is not configured")
+
+  const response = await fetch(GAS_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "text/plain;charset=utf-8",
+    },
+    body: JSON.stringify({
+      action: "upsertUser",
+      token: GAS_SECRET,
+      payload,
+    }),
   })
+
+  return parseGasResponse(response, "Failed to save user")
+}
+
+export async function deleteUser(userId: string, adminPhone: string) {
+  if (!GAS_URL) throw new Error("GAS_URL is not configured")
+
+  const response = await fetch(GAS_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "text/plain;charset=utf-8",
+    },
+    body: JSON.stringify({
+      action: "deleteUser",
+      token: GAS_SECRET,
+      userId,
+      adminPhone,
+    }),
+  })
+
+  return parseGasResponse(response, "Failed to delete user")
+}
+
+export async function submitPurchase(
+  payload: { productIds: string[], adminPhone: string }
+) {
+  if (!GAS_URL) throw new Error("GAS_URL is not configured")
+
+  const response = await fetch(GAS_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "text/plain;charset=utf-8",
+    },
+    body: JSON.stringify({
+      action: "submitPurchase",
+      token: GAS_SECRET,
+      payload,
+    }),
+  })
+
+  return parseGasResponse(response, "Purchase failed")
 }

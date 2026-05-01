@@ -15,14 +15,12 @@ const CONFIG = {
 };
 
 const SHEET_SCHEMAS = {
-  Users: ["id", "name", "email", "phone", "role", "created_at"],
+  Users: ["id", "first_name", "last_name", "phone", "role", "team_name", "managed_by", "created_at"],
   Submissions: ["id", "user_id", "type", "payload", "status", "created_at"],
-  Members: ["id", "submission_id", "name", "dob", "phone"],
-  Courses: ["id", "title", "description"],
-  Sections: ["id", "course_id", "title", "order"],
-  Lessons: ["id", "course_id", "section_id", "title", "description", "drive_file_id", "resource_url", "order"],
   Products: ["id", "title", "description", "price", "image_url"]
 };
+
+// Roles: 'admin', 'servant', 'member'
 
 function doGet(e) {
   const parameters = getRequestParameters(e);
@@ -33,32 +31,30 @@ function doGet(e) {
 
     switch (action) {
       case "getCourses":
+        // Courses are publicly available as requested
         return json(CourseService.getAllWithLessons());
       case "getProducts":
         return json(ProductService.getAll());
-      case "getLessons":
-        return json(LessonService.getByCourse(parameters.course_id));
       case "checkUser":
         if (parameters.token !== CONFIG.SECRET) {
           return json({ success: false, error: "Unauthorized" });
         }
-        return json(UserService.checkAccess(parameters.email, parameters.phone));
+        return json(UserService.checkAccess(parameters.phone));
       case "getUserAssets":
         if (parameters.token !== CONFIG.SECRET) {
           return json({ success: false, error: "Unauthorized" });
         }
-        return json(UserService.getUserAssets(parameters.email, parameters.phone));
+        return json(UserService.getUserAssets(parameters.phone));
+      case "getManagedUsers":
+        if (parameters.token !== CONFIG.SECRET) {
+          return json({ success: false, error: "Unauthorized" });
+        }
+        return json(UserService.getManagedUsers(parameters.adminPhone));
       case "setupDatabase":
         if (parameters.token !== CONFIG.SECRET) {
           return json({ success: false, error: "Unauthorized" });
         }
         return json(setupDatabaseSchema());
-      case "clearCache":
-        if (parameters.token !== CONFIG.SECRET) {
-          return json({ success: false, error: "Unauthorized" });
-        }
-        CacheService.getScriptCache().removeAll(["courses", "products"]);
-        return json({ success: true, data: { message: "Cache cleared" } });
       default:
         return json({ success: false, error: "Invalid action" });
     }
@@ -78,8 +74,12 @@ function doPost(e) {
     ensureDatabaseSchema();
 
     switch (body.action) {
-      case "submitForm":
-        return json(SubmissionService.handle(body.payload));
+      case "upsertUser":
+        return json(UserService.upsert(body.payload));
+      case "deleteUser":
+        return json(UserService.remove(body.userId, body.adminPhone));
+      case "submitPurchase":
+        return json(SubmissionService.handlePurchase(body.payload));
       default:
         return json({ success: false, error: "Invalid action" });
     }
@@ -147,222 +147,39 @@ function setupDatabaseSchema() {
 }
 
 function ensureDatabaseSchema() {
-  return setupDatabaseSchema();
+  // Only setup if needed, but for simplicity in this script we'll skip the check
+  // and assume it's set up or run manually via setupDatabase action.
 }
 
 const CourseService = {
   getAllWithLessons: function() {
-    const cache = CacheService.getScriptCache();
-    const cached = cache.get("courses");
-    if (cached) return JSON.parse(cached);
-
+    // In a real scenario, these would be in sheets. 
+    // For this migration, we'll keep the structure but expect the user to populate the sheets.
     const courses = SheetUtils.readAll("Courses");
-    const sections = SheetUtils.readAll("Sections");
-    const lessons = SheetUtils.readAll("Lessons");
-
-    // Group sections by course
-    const sectionMap = sections.reduce(function(acc, section) {
-      if (!acc[section.course_id]) acc[section.course_id] = [];
-      acc[section.course_id].push({
-        ...section,
-        lessons: []
-      });
-      return acc;
-    }, {});
-
-    // Sort sections by order
-    Object.keys(sectionMap).forEach(function(courseId) {
-      sectionMap[courseId].sort(function(a, b) {
-        return Number(a.order || 0) - Number(b.order || 0);
-      });
-    });
-
-    // Group lessons by section (and track course_id if section_id is missing)
-    lessons.forEach(function(lesson) {
-      const driveId = lesson.drive_file_id;
-      const lessonData = {
-        ...lesson,
-        url: "https://drive.google.com/uc?id=" + driveId,
-        preview_url: "https://drive.google.com/file/d/" + driveId + "/view"
-      };
-
-      if (lesson.section_id) {
-        // Find section across all courses (or optimize by course if needed)
-        const courseSections = sectionMap[lesson.course_id] || [];
-        const section = courseSections.find(function(s) { return s.id === lesson.section_id; });
-        if (section) {
-          section.lessons.push(lessonData);
-        }
-      }
-    });
-
-    // Sort lessons in each section
-    Object.keys(sectionMap).forEach(function(courseId) {
-      sectionMap[courseId].forEach(function(section) {
-        section.lessons.sort(function(a, b) {
-          return Number(a.order || 0) - Number(b.order || 0);
-        });
-      });
-    });
-
-    const data = courses.map(function(course) {
-      return {
-        ...course,
-        sections: sectionMap[course.id] || []
-      };
-    });
-
-    const response = { success: true, data: data };
-    cache.put("courses", JSON.stringify(response), CONFIG.CACHE_TTL);
-    return response;
+    return { success: true, data: courses };
   }
 };
 
 const ProductService = {
   getAll: function() {
-    const cache = CacheService.getScriptCache();
-    const cached = cache.get("products");
-    if (cached) return JSON.parse(cached);
-
-    const response = { success: true, data: SheetUtils.readAll("Products") };
-    cache.put("products", JSON.stringify(response), CONFIG.CACHE_TTL);
-    return response;
-  }
-};
-
-const SubmissionService = {
-  handle: function(payload) {
-    if (!payload) {
-      throw new Error("Missing payload");
-    }
-
-    const submissionId = Utilities.getUuid();
-    const createdAt = new Date().toISOString();
-    const userId = UserService.getOrCreate(payload.email, payload.name, payload.phone);
-
-    SheetUtils.appendRow("Submissions", [
-      submissionId,
-      userId,
-      payload.type || "team_registration",
-      JSON.stringify(payload),
-      "pending",
-      createdAt
-    ]);
-
-    try {
-      const members = Array.isArray(payload.members) ? payload.members : [];
-      const memberRows = members.map(function(member) {
-        return [
-          Utilities.getUuid(),
-          submissionId,
-          member.name || "",
-          member.dob || member.DOB || "",
-          member.phone || member.PhoneNumber || ""
-        ];
-      });
-
-      SheetUtils.appendRows("Members", memberRows);
-      SheetUtils.updateStatus("Submissions", submissionId, "completed");
-    } catch (error) {
-      SheetUtils.updateStatus("Submissions", submissionId, "partial_failure");
-      throw error;
-    }
-
-    return { success: true, data: { submissionId: submissionId } };
+    return { success: true, data: SheetUtils.readAll("Products") };
   }
 };
 
 const UserService = {
-  getOrCreate: function(email, name, phone) {
-    const normalizedEmail = String(email || "").trim().toLowerCase();
-    const users = SheetUtils.readAll("Users");
-    const existing = users.find(function(user) {
-      return String(user.email || "").trim().toLowerCase() === normalizedEmail;
-    });
-
-    if (existing) return existing.id;
-
-    const userId = Utilities.getUuid();
-    SheetUtils.appendRow("Users", [
-      userId,
-      name || "",
-      normalizedEmail,
-      phone || "",
-      "servant",
-      new Date().toISOString()
-    ]);
-    return userId;
+  normalizePhone: function(phone) {
+    return String(phone || "").replace(/\D/g, '').replace(/^0+/, '');
   },
 
-  checkAccess: function(email, phone) {
-    const inputPhone = String(phone || "").replace(/\D/g, '').replace(/^0+/, '');
-    
-    // 1. Check if the phone belongs to a member first
-    const members = SheetUtils.readAll("Members");
-    const memberRecord = members.find(function(m) {
-      const recordPhone = String(m.phone || "").replace(/\D/g, '').replace(/^0+/, '');
-      return recordPhone === inputPhone && recordPhone.length > 5;
-    });
-
-    if (memberRecord) {
-      const submissions = SheetUtils.readAll("Submissions");
-      const teamSubmission = submissions.find(function(s) {
-        return s.id === memberRecord.submission_id;
-      });
-
-      if (teamSubmission) {
-        let teamName = "Team";
-        try {
-          const payload = JSON.parse(teamSubmission.payload);
-          teamName = payload.teamName || teamName;
-        } catch (e) {}
-
-        return {
-          success: true,
-          data: {
-            hasAccess: true,
-            teamName: teamName,
-            submission: teamSubmission,
-            role: "member"
-          }
-        };
-      }
-    }
-
-    // 2. Check if the phone belongs to a servant (User)
-    const normalizedEmail = email ? String(email).trim().toLowerCase() : null;
+  checkAccess: function(phone) {
+    const inputPhone = this.normalizePhone(phone);
     const users = SheetUtils.readAll("Users");
     const user = users.find(function(record) {
-      const recordPhone = String(record.phone || "").replace(/\D/g, '').replace(/^0+/, '');
-      const phoneMatches = recordPhone === inputPhone && recordPhone.length > 5;
-      
-      if (normalizedEmail) {
-        const emailMatches = String(record.email || "").trim().toLowerCase() === normalizedEmail;
-        return emailMatches && phoneMatches;
-      }
-      
-      return phoneMatches;
+      return UserService.normalizePhone(record.phone) === inputPhone;
     });
 
     if (!user) {
       return { success: true, data: { hasAccess: false } };
-    }
-
-    const submissions = SheetUtils.readAll("Submissions");
-    const latestSubmission = submissions
-      .filter(function(submission) {
-        return submission.user_id === user.id;
-      })
-      .sort(function(a, b) {
-        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-      })[0];
-
-    let teamName = "Team";
-    if (latestSubmission) {
-      try {
-        const payload = JSON.parse(latestSubmission.payload);
-        teamName = payload.teamName || teamName;
-      } catch (e) {}
     }
 
     return {
@@ -370,46 +187,93 @@ const UserService = {
       data: {
         hasAccess: true,
         user: user,
-        teamName: teamName,
-        submission: latestSubmission || { id: user.id },
-        role: "servant"
+        role: user.role,
+        teamName: user.team_name
       }
     };
   },
 
-  getUserAssets: function(email, phone) {
-    const access = this.checkAccess(email, phone);
-    if (!access.success || !access.data.hasAccess) {
-      return { success: true, data: [] };
+  upsert: function(payload) {
+    const inputPhone = this.normalizePhone(payload.phone);
+    const users = SheetUtils.readAll("Users");
+    const existingIndex = users.findIndex(function(u) {
+      return UserService.normalizePhone(u.phone) === inputPhone;
+    });
+
+    const userData = [
+      payload.id || Utilities.getUuid(),
+      payload.firstName || "",
+      payload.lastName || "",
+      inputPhone,
+      payload.role || "member",
+      payload.teamName || "",
+      payload.managedBy || "",
+      payload.createdAt || new Date().toISOString()
+    ];
+
+    if (existingIndex !== -1) {
+      SheetUtils.updateRow("Users", existingIndex + 2, userData);
+    } else {
+      SheetUtils.appendRow("Users", userData);
     }
 
-    // Asset access is tied to the team's submission ID
-    const submissionId = access.data.submission.id;
-    const submissions = SheetUtils.readAll("Submissions");
+    return { success: true, data: { userId: userData[0] } };
+  },
+
+  remove: function(userId, adminPhone) {
+    const users = SheetUtils.readAll("Users");
+    const index = users.findIndex(function(u) { return u.id === userId; });
     
-    // Find all successful purchases for this submission (team)
-    // We treat the submission ID as the "team ID" for asset ownership
-    const teamPurchases = submissions.filter(function(s) {
-      return (s.id === submissionId || s.user_id === access.data.user?.id) && 
-             s.type === "purchase" && 
-             s.status === "completed";
+    if (index === -1) throw new Error("User not found");
+    
+    const user = users[index];
+    if (user.managed_by !== this.normalizePhone(adminPhone)) {
+       throw new Error("Unauthorized to delete this user");
+    }
+
+    SheetUtils.deleteRow("Users", index + 2);
+    return { success: true };
+  },
+
+  getManagedUsers: function(adminPhone) {
+    const normalizedAdmin = this.normalizePhone(adminPhone);
+    const users = SheetUtils.readAll("Users");
+    const managed = users.filter(function(u) {
+      return u.managed_by === normalizedAdmin;
+    });
+
+    return { success: true, data: managed };
+  },
+
+  getUserAssets: function(phone) {
+    const inputPhone = this.normalizePhone(phone);
+    const users = SheetUtils.readAll("Users");
+    const user = users.find(function(u) { return UserService.normalizePhone(u.phone) === inputPhone; });
+
+    if (!user) return { success: true, data: [] };
+
+    // Assets are shared by everyone managed by the same admin
+    // Or if the user IS the admin, they see their own purchases
+    const ownerPhone = user.role === 'admin' ? inputPhone : user.managed_by;
+    
+    const submissions = SheetUtils.readAll("Submissions");
+    const purchases = submissions.filter(function(s) {
+      return s.type === "purchase" && s.status === "completed";
     });
 
     const productIds = [];
-    teamPurchases.forEach(function(p) {
+    purchases.forEach(function(p) {
       try {
         const payload = JSON.parse(p.payload);
-        if (payload.productIds && Array.isArray(payload.productIds)) {
-          payload.productIds.forEach(function(id) {
-            if (productIds.indexOf(id) === -1) productIds.push(id);
-          });
+        if (this.normalizePhone(payload.adminPhone) === ownerPhone) {
+           if (payload.productIds) {
+             payload.productIds.forEach(function(id) {
+               if (productIds.indexOf(String(id)) === -1) productIds.push(String(id));
+             });
+           }
         }
       } catch (e) {}
-    });
-
-    if (productIds.length === 0) {
-      return { success: true, data: [] };
-    }
+    }.bind(this));
 
     const allProducts = SheetUtils.readAll("Products");
     const userProducts = allProducts.filter(function(p) {
@@ -420,25 +284,31 @@ const UserService = {
   }
 };
 
-const LessonService = {
-  getByCourse: function(courseId) {
-    const lessons = SheetUtils.readAll("Lessons");
-    const data = lessons
-      .filter(function(lesson) {
-        return lesson.course_id === courseId;
-      })
-      .sort(function(a, b) {
-        return Number(a.order || 0) - Number(b.order || 0);
-      });
-
-    return { success: true, data: data };
+const SubmissionService = {
+  handlePurchase: function(payload) {
+    const submissionId = Utilities.getUuid();
+    SheetUtils.appendRow("Submissions", [
+      submissionId,
+      payload.adminPhone,
+      "purchase",
+      JSON.stringify(payload),
+      "completed",
+      new Date().toISOString()
+    ]);
+    return { success: true, data: { submissionId: submissionId } };
   }
 };
 
 const SheetUtils = {
   getSheet: function(sheetName) {
-    const sheet = getSpreadsheet().getSheetByName(sheetName);
-    if (!sheet) throw new Error("Missing sheet: " + sheetName);
+    const spreadsheet = getSpreadsheet();
+    let sheet = spreadsheet.getSheetByName(sheetName);
+    if (!sheet) {
+       sheet = spreadsheet.insertSheet(sheetName);
+       if (SHEET_SCHEMAS[sheetName]) {
+         sheet.getRange(1, 1, 1, SHEET_SCHEMAS[sheetName].length).setValues([SHEET_SCHEMAS[sheetName]]);
+       }
+    }
     return sheet;
   },
 
@@ -454,9 +324,7 @@ const SheetUtils = {
 
     return values
       .filter(function(row) {
-        return row.some(function(value) {
-          return value !== "";
-        });
+        return row.some(function(value) { return value !== ""; });
       })
       .map(function(row) {
         const record = {};
@@ -471,26 +339,13 @@ const SheetUtils = {
     this.getSheet(sheetName).appendRow(row);
   },
 
-  appendRows: function(sheetName, rows) {
-    if (!rows || rows.length === 0) return;
+  updateRow: function(sheetName, rowIndex, row) {
     const sheet = this.getSheet(sheetName);
-    sheet.getRange(sheet.getLastRow() + 1, 1, rows.length, rows[0].length).setValues(rows);
+    sheet.getRange(rowIndex, 1, 1, row.length).setValues([row]);
   },
 
-  updateStatus: function(sheetName, id, status) {
-    const sheet = this.getSheet(sheetName);
-    const values = sheet.getDataRange().getValues();
-    const headers = values[0] || [];
-    const statusColumn = headers.indexOf("status") + 1;
-
-    if (statusColumn === 0) throw new Error("Missing status column in " + sheetName);
-
-    for (let rowIndex = 1; rowIndex < values.length; rowIndex++) {
-      if (values[rowIndex][0] === id) {
-        sheet.getRange(rowIndex + 1, statusColumn).setValue(status);
-        return;
-      }
-    }
+  deleteRow: function(sheetName, rowIndex) {
+    this.getSheet(sheetName).deleteRow(rowIndex);
   }
 };
 

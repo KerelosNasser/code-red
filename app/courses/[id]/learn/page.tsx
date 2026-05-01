@@ -63,12 +63,6 @@ export default function CoursePlayerPage() {
 
   useEffect(() => {
     const init = async () => {
-      const access = getStoredAccess()
-      if (!access) {
-        router.push("/")
-        return
-      }
-
       try {
         const res = await getCoursesFromGas()
         let found = null

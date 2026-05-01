@@ -5,12 +5,12 @@ import { usePathname } from "next/navigation"
 import { useEffect, useState } from "react"
 import { getStoredAccess } from "@/lib/access-storage"
 import { Button } from "./ui/button"
-import { ShoppingCart, Menu, X } from "lucide-react"
+import { ShoppingCart, Menu, X, LayoutDashboard } from "lucide-react"
 import { useCartStore } from "@/lib/store/cart"
 
 export function Navbar() {
   const pathname = usePathname()
-  const [hasAccess, setHasAccess] = useState(false)
+  const [access, setAccess] = useState<ReturnType<typeof getStoredAccess>>(null)
   const cartItemsCount = useCartStore((state) => state.items.length)
   const [isClient, setIsClient] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
@@ -18,7 +18,7 @@ export function Navbar() {
   useEffect(() => {
     setTimeout(() => setIsClient(true), 0)
     const checkAccess = () => {
-      setHasAccess(Boolean(getStoredAccess()))
+      setAccess(getStoredAccess())
     }
 
     checkAccess()
@@ -39,6 +39,9 @@ export function Navbar() {
   if (pathname === "/register") {
     return null
   }
+
+  const isAdmin = access?.role === 'admin'
+  const hasAccess = Boolean(access)
 
   const linkStyle = (path: string) =>
     `relative text-lg font-bold transition-all duration-300 w-fit
@@ -89,24 +92,33 @@ export function Navbar() {
           <Link href="/about" className={linkStyle("/about")}>
             About
           </Link>
-          <Link href="/store" className={linkStyle("/store")}>
-            Store
+          
+          <Link href="/courses" className={linkStyle("/courses")}>
+            Courses
           </Link>
 
           {hasAccess && (
+            <Link href="/assets" className={linkStyle("/assets")}>
+              Assets
+            </Link>
+          )}
+
+          {isAdmin && (
             <>
-              <Link href="/courses" className={linkStyle("/courses")}>
-                Courses
+              <Link href="/store" className={linkStyle("/store")}>
+                Store
               </Link>
-              <Link href="/assets" className={linkStyle("/assets")}>
-                Assets
+              <Link href="/register" className={linkStyle("/register")}>
+                <span className="flex items-center gap-1">
+                  <LayoutDashboard className="h-4 w-4" /> Registration
+                </span>
               </Link>
             </>
           )}
 
-          <CartLink />
+          {isAdmin && <CartLink />}
 
-          {!hasAccess && pathname !== "/register" && (
+          {!hasAccess && (
             <Button
               asChild
               size="sm"
@@ -115,11 +127,26 @@ export function Navbar() {
               <Link href="/register">Login</Link>
             </Button>
           )}
+
+          {hasAccess && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-white hover:text-red-400"
+              onClick={() => {
+                const { clearStoredAccess } = require("@/lib/access-storage")
+                clearStoredAccess()
+                window.location.href = "/"
+              }}
+            >
+              Logout
+            </Button>
+          )}
         </div>
 
         {/* Mobile Controls */}
         <div className="flex items-center gap-5 md:hidden">
-          <CartLink />
+          {isAdmin && <CartLink />}
           <button
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
             className="text-white hover:text-[#F5A623] focus:outline-none"
@@ -140,25 +167,43 @@ export function Navbar() {
           <Link href="/about" className={linkStyle("/about")}>
             About
           </Link>
-          <Link href="/store" className={linkStyle("/store")}>
-            Store
+          <Link href="/courses" className={linkStyle("/courses")}>
+            Courses
           </Link>
           {hasAccess && (
+            <Link href="/assets" className={linkStyle("/assets")}>
+              Assets
+            </Link>
+          )}
+          {isAdmin && (
             <>
-              <Link href="/courses" className={linkStyle("/courses")}>
-                Courses
+              <Link href="/store" className={linkStyle("/store")}>
+                Store
               </Link>
-              <Link href="/assets" className={linkStyle("/assets")}>
-                Assets
+              <Link href="/register" className={linkStyle("/register")}>
+                Registration
               </Link>
             </>
           )}
-          {!hasAccess && pathname !== "/register" && (
+          {!hasAccess && (
             <Button
               asChild
               className="mt-2 w-full rounded-xl bg-[#F5A623] py-6 text-lg font-semibold text-white shadow-md transition-all hover:bg-[#F5A623]/90"
             >
               <Link href="/register">Login</Link>
+            </Button>
+          )}
+          {hasAccess && (
+            <Button
+              variant="destructive"
+              className="w-full"
+              onClick={() => {
+                const { clearStoredAccess } = require("@/lib/access-storage")
+                clearStoredAccess()
+                window.location.href = "/"
+              }}
+            >
+              Logout
             </Button>
           )}
         </div>

@@ -1,13 +1,14 @@
 "use client"
 
 import React, { useEffect, useState } from "react"
-import { ShoppingCart, Package, Info } from "lucide-react"
+import { ShoppingCart, Package, Info, Lock } from "lucide-react"
 import Link from "next/link"
 import { getProductsFromGas } from "@/lib/api-client"
 import { MOCK_PRODUCTS } from "@/lib/mock-data"
 import { useCartStore } from "@/lib/store/cart"
 import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
+import { getStoredAccess } from "@/lib/access-storage"
 
 interface Product {
   id: string
@@ -20,9 +21,19 @@ interface Product {
 export default function StorePage() {
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
+  const [isAdmin, setIsAdmin] = useState(false)
   const addItem = useCartStore((state) => state.addItem)
 
   useEffect(() => {
+    const access = getStoredAccess()
+    if (access?.role === 'admin') {
+      setIsAdmin(true)
+    } else {
+      setIsAdmin(false)
+      setLoading(false)
+      return
+    }
+
     const fetchProducts = async () => {
       try {
         const res = await getProductsFromGas()
@@ -49,6 +60,23 @@ export default function StorePage() {
       image_url: product.image_url,
     })
     toast.success(`${product.title} added to cart`)
+  }
+
+  if (!loading && !isAdmin) {
+    return (
+      <div className="mx-auto max-w-7xl px-4 py-32 text-center">
+        <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-slate-100">
+          <Lock className="h-10 w-10 text-slate-400" />
+        </div>
+        <h1 className="text-3xl font-bold text-slate-900">Admin Only</h1>
+        <p className="mt-4 text-lg text-slate-600">
+          Only administrators can purchase specialized robotics equipment.
+        </p>
+        <Button asChild className="mt-8 bg-blue-900">
+          <Link href="/">Back to Home</Link>
+        </Button>
+      </div>
+    )
   }
 
   return (

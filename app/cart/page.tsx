@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useState } from "react"
-import { Trash2, ShoppingBag, ArrowRight, Package, Loader2 } from "lucide-react"
+import { Trash2, ShoppingBag, ArrowRight, Package, Loader2, Lock } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useCartStore } from "@/lib/store/cart"
@@ -15,25 +15,24 @@ export default function CartPage() {
   const { items, removeItem, clearCart } = useCartStore()
   const [isCheckingOut, setIsCheckingOut] = useState(false)
   const router = useRouter()
+  const access = getStoredAccess()
 
   const total = items.reduce((sum, item) => sum + Number(item.price), 0)
 
   const handleCheckout = async () => {
-    const access = getStoredAccess()
-    if (!access) {
-      toast.error("Please register or login first to complete your purchase")
-      router.push("/")
+    if (!access || access.role !== 'admin') {
+      toast.error("Only administrators can complete purchases")
       return
     }
 
     setIsCheckingOut(true)
     try {
-      const res = await submitPurchase(
-        { productIds: items.map((i) => i.id) },
-        access
-      )
+      const res = await submitPurchase({ 
+        productIds: items.map((i) => i.id),
+        adminPhone: access.phone
+      })
       if (res.success) {
-        toast.success("Purchase successful! Your assets are now available.")
+        toast.success("Purchase successful! Your assets are now available for your team.")
         clearCart()
         router.push("/assets")
       }
@@ -43,6 +42,23 @@ export default function CartPage() {
     } finally {
       setIsCheckingOut(false)
     }
+  }
+
+  if (access && access.role !== 'admin') {
+    return (
+      <div className="mx-auto max-w-7xl px-4 py-32 text-center">
+        <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-slate-100">
+          <Lock className="h-10 w-10 text-slate-400" />
+        </div>
+        <h1 className="text-3xl font-bold text-slate-900">Admin Only</h1>
+        <p className="mt-4 text-lg text-slate-600">
+          Only administrators can access the checkout.
+        </p>
+        <Button asChild className="mt-8 bg-blue-900">
+          <Link href="/">Back to Home</Link>
+        </Button>
+      </div>
+    )
   }
 
   if (items.length === 0) {

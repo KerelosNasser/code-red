@@ -1,35 +1,36 @@
 export const ACCESS_STORAGE_KEY = "dara_access"
-export const LEGACY_ACCESS_KEY = "dara_has_submitted"
 export const SESSION_VALIDATED_KEY = "dara_session_validated"
 
 export type StoredAccess = {
-  email: string
   phone: string
-  submissionId: string
+  role: 'admin' | 'servant' | 'member'
   teamName?: string
+  firstName?: string
+  lastName?: string
 }
 
 export function getStoredAccess(): StoredAccess | null {
+  if (typeof window === "undefined") return null
   const raw = localStorage.getItem(ACCESS_STORAGE_KEY)
 
   if (!raw) {
-    localStorage.removeItem(LEGACY_ACCESS_KEY)
     sessionStorage.removeItem(SESSION_VALIDATED_KEY)
     return null
   }
 
   try {
     const parsed = JSON.parse(raw) as Partial<StoredAccess>
-    if (!parsed.email || !parsed.phone || !parsed.submissionId) {
+    if (!parsed.phone || !parsed.role) {
       clearStoredAccess()
       return null
     }
 
     return {
-      email: parsed.email,
       phone: parsed.phone,
-      submissionId: parsed.submissionId,
+      role: parsed.role as 'admin' | 'servant' | 'member',
       teamName: parsed.teamName,
+      firstName: parsed.firstName,
+      lastName: parsed.lastName
     }
   } catch {
     clearStoredAccess()
@@ -52,13 +53,18 @@ export function setSessionValidated(valid: boolean) {
 }
 
 export function storeAccess(access: StoredAccess) {
+  if (typeof window === "undefined") return
   localStorage.setItem(ACCESS_STORAGE_KEY, JSON.stringify(access))
-  localStorage.removeItem(LEGACY_ACCESS_KEY)
   setSessionValidated(true)
 }
 
 export function clearStoredAccess() {
+  if (typeof window === "undefined") return
   localStorage.removeItem(ACCESS_STORAGE_KEY)
-  localStorage.removeItem(LEGACY_ACCESS_KEY)
   sessionStorage.removeItem(SESSION_VALIDATED_KEY)
+}
+
+export function isAdmin(): boolean {
+  const access = getStoredAccess()
+  return access?.role === 'admin'
 }

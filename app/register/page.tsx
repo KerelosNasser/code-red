@@ -2,14 +2,14 @@
 import React, { useState, useEffect } from "react"
 import Image from "next/image"
 import { Input } from "@/components/ui/input"
-import { useFieldArray, useForm } from "react-hook-form"
+import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { toast } from "sonner"
 import { motion, AnimatePresence } from "framer-motion"
-import { Plus, Trash2, Send, Users, User, CircleCheck, LogIn, ArrowLeft } from "lucide-react"
-import { checkUserAccess, submitToGas } from "@/lib/api-client"
+import { Users, User, LogIn, ArrowLeft, Plus, Trash2, ShieldCheck, RefreshCw } from "lucide-react"
+import { checkUserAccess, getManagedUsers, upsertUser, deleteUser, type User as GasUser } from "@/lib/api-client"
 import {
   clearStoredAccess,
   getStoredAccess,
@@ -18,37 +18,27 @@ import {
   setSessionValidated,
 } from "@/lib/access-storage"
 import {
-  generateSubmissionId,
-  generateWhatsAppLink,
-  registrationSchema,
   loginSchema,
   normalizePhoneNumber,
-  type RegistrationFormValues,
+  userUpsertSchema,
+  type LoginFormValues,
+  type UserUpsertValues
 } from "@/lib/registration"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 
-const ADMIN_WHATSAPP_PHONE =
-  process.env.NEXT_PUBLIC_ADMIN_WHATSAPP_PHONE || "01211730727"
-
-function getErrorMessage(_error: unknown, fallbackMessage: string) {
-  return _error instanceof Error ? _error.message : fallbackMessage
-}
-
-type SubmissionStatus = {
-  type: "success" | "error"
-  message: string
-} | null
+const ADMIN_PHONES = (process.env.NEXT_PUBLIC_ADMIN_PHONES || "").split(",").map(p => normalizePhoneNumber(p.trim()))
 
 export default function RegisterPage() {
   const router = useRouter()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isCheckingAccess, setIsCheckingAccess] = useState(true)
-  const [hasSubmitted, setHasSubmitted] = useState(false)
-  const [whatsAppUrl, setWhatsAppUrl] = useState("")
-  const [submissionStatus, setSubmissionStatus] =
-    useState<SubmissionStatus>(null)
-  const [authMode, setAuthMode] = useState<"signup" | "login">("signup")
+  const [access, setAccess] = useState<ReturnType<typeof getStoredAccess>>(null)
+  
+  // Dashboard states
+  const [managedUsers, setManagedUsers] = useState<GasUser[]>([])
+  const [isLoadingUsers, setIsLoadingUsers] = useState(false)
+  const [isAddingUser, setIsAddingUser] = useState(false)
 
   useEffect(() => {
     let isMounted = true
@@ -57,600 +47,328 @@ export default function RegisterPage() {
       const storedAccess = getStoredAccess()
 
       if (!storedAccess) {
-        if (isMounted) setIsCheckingAccess(false)
+        if (isMounted) {
+          setIsCheckingAccess(false)
+          setAccess(null)
+        }
         return
       }
 
+      setAccess(storedAccess)
+
       // Use cached session validation
       if (isSessionValidated()) {
-        setHasSubmitted(true)
         if (isMounted) setIsCheckingAccess(false)
         return
       }
 
       try {
         const result = await checkUserAccess(storedAccess)
-
         if (!isMounted) return
-
         if (result.data?.hasAccess) {
-          setHasSubmitted(true)
           setSessionValidated(true)
         } else {
           clearStoredAccess()
-          setHasSubmitted(false)
+          setAccess(null)
         }
       } catch (error) {
         if (!isMounted) return
         clearStoredAccess()
+        setAccess(null)
       } finally {
         if (isMounted) setIsCheckingAccess(false)
       }
     }
 
     void verifyStoredAccess()
-
-    return () => {
-      isMounted = false
-    }
+    return () => { isMounted = false }
   }, [])
 
-  const form = useForm<RegistrationFormValues>({
-    resolver: async (data, context, options) => {
-      const schema = authMode === "signup" ? registrationSchema : loginSchema
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return (zodResolver(schema) as any)(data, context, options)
-    },
-    defaultValues: {
-      name: "",
-      email: "",
-      phone: "",
-      paymentReference: "",
-      DOB: "",
-      members: [],
-    },
+  // Fetch managed users if admin
+  useEffect(() => {
+    if (access?.role === 'admin') {
+      void fetchUsers()
+    }
+  }, [access])
+
+  const fetchUsers = async () => {
+    if (!access?.phone) return
+    setIsLoadingUsers(true)
+    try {
+      const result = await getManagedUsers(access.phone)
+      setManagedUsers(result.data || [])
+    } catch (error) {
+      toast.error("Failed to load team members")
+    } finally {
+      setIsLoadingUsers(false)
+    }
+  }
+
+  const loginForm = useForm<LoginFormValues>({
+    resolver: zodResolver(loginSchema),
+    defaultValues: { phone: "" }
   })
 
-  const { fields, append, remove } = useFieldArray({
-    control: form.control,
-    name: "members",
+  const userForm = useForm<UserUpsertValues>({
+    resolver: zodResolver(userUpsertSchema),
+    defaultValues: { firstName: "", lastName: "", phone: "", role: "member", teamName: "" }
   })
 
-  const onSubmit = async (values: RegistrationFormValues) => {
-    if (isSubmitting || hasSubmitted) return
-
+  const onLogin = async (values: LoginFormValues) => {
     setIsSubmitting(true)
-    setSubmissionStatus(null)
-    setWhatsAppUrl("")
-
     const normalizedPhone = normalizePhoneNumber(values.phone)
 
-    if (authMode === "login") {
-      try {
-        const result = await checkUserAccess({
-          phone: normalizedPhone,
-        })
-
-        if (result.data?.hasAccess) {
-          storeAccess({
-            email: result.data.user?.email || "",
-            phone: normalizedPhone,
-            submissionId: result.data.submission?.id || "",
-            teamName: result.data.teamName || "",
-          })
-          window.dispatchEvent(new Event("dara_access_granted"))
-          setHasSubmitted(true)
-          setSubmissionStatus({
-            type: "success",
-            message: "Login successful!",
-          })
-          toast.success("Welcome back. You can now access all features.")
-          router.push("/")
-        } else {
-          setSubmissionStatus({
-            type: "error",
-            message: "We could not find your registration in the database.",
-          })
-          toast.error("Login failed. Registration not found.")
-        }
-      } catch (error) {
-        const errorMessage = getErrorMessage(
-          error,
-          "Login failed. Please try again."
-        )
-        setSubmissionStatus({
-          type: "error",
-          message: errorMessage,
-        })
-        toast.error(errorMessage)
-      } finally {
-        setIsSubmitting(false)
+    // 1. Check if admin from .env
+    if (ADMIN_PHONES.includes(normalizedPhone)) {
+      const adminAccess = {
+        phone: normalizedPhone,
+        role: 'admin' as const,
+        firstName: "Admin",
+        lastName: ""
       }
+      storeAccess(adminAccess)
+      setAccess(adminAccess)
+      window.dispatchEvent(new Event("dara_access_granted"))
+      toast.success("Welcome, Admin!")
+      setIsSubmitting(false)
       return
     }
 
-    const uniqueId = generateSubmissionId()
-    const timestamp = new Date().toISOString()
-
+    // 2. Check if user/member from GAS
     try {
-      const result = await submitToGas({
-        ...values,
-        phone: normalizedPhone,
-        members: values.members.map((m) => ({
-          ...m,
-          PhoneNumber: normalizePhoneNumber(m.PhoneNumber),
-        })),
-        type: "team_registration",
-      })
-      const submissionId = result.data?.submissionId || uniqueId
-
-      const redirectUrl = generateWhatsAppLink(ADMIN_WHATSAPP_PHONE, {
-        name: values.name,
-        phone: normalizedPhone,
-        paymentReference: values.paymentReference,
-        uniqueId,
-        timestamp,
-      })
-
-      // Update state and persistence
-      storeAccess({
-        email: values.email,
-        phone: normalizedPhone,
-        submissionId,
-        teamName: values.teamName,
-      })
-      window.dispatchEvent(new Event("dara_access_granted"))
-
-      setHasSubmitted(true)
-      setWhatsAppUrl(redirectUrl)
-
-      setSubmissionStatus({
-        type: "success",
-        message: "Registration successful!",
-      })
-      toast.success("Submission sent. You can now access all features.")
+      const result = await checkUserAccess({ phone: normalizedPhone })
+      if (result.data?.hasAccess) {
+        const userAccess = {
+          phone: normalizedPhone,
+          role: result.data.role || 'member',
+          teamName: result.data.teamName || "",
+          firstName: result.data.user?.first_name || "",
+          lastName: result.data.user?.last_name || ""
+        }
+        storeAccess(userAccess)
+        setAccess(userAccess)
+        window.dispatchEvent(new Event("dara_access_granted"))
+        toast.success("Login successful!")
+        router.push("/")
+      } else {
+        toast.error("Account not found. Please contact your team admin to be included.")
+      }
     } catch (error) {
-      const errorMessage = getErrorMessage(
-        error,
-        "Submission failed. Please try again."
-      )
-      setSubmissionStatus({
-        type: "error",
-        message: errorMessage,
-      })
-      toast.error(errorMessage)
+      toast.error("Connection error. Please try again.")
+    } finally {
       setIsSubmitting(false)
     }
   }
 
-  const onInvalidSubmit = () => {
-    const errorMessage = "Please fix the highlighted fields before submitting."
-    setSubmissionStatus({
-      type: "error",
-      message: errorMessage,
-    })
-    toast.error(errorMessage)
+  const onAddUser = async (values: UserUpsertValues) => {
+    if (!access?.phone) return
+    setIsAddingUser(true)
+    try {
+      const normalizedPhone = normalizePhoneNumber(values.phone)
+      await upsertUser({
+        first_name: values.firstName,
+        last_name: values.lastName,
+        phone: normalizedPhone,
+        role: values.role,
+        team_name: values.teamName,
+        managed_by: normalizePhoneNumber(access.phone),
+        created_at: new Date().toISOString()
+      })
+      toast.success(`${values.firstName} added successfully`)
+      userForm.reset()
+      void fetchUsers()
+    } catch (error) {
+      toast.error("Failed to add user")
+    } finally {
+      setIsAddingUser(false)
+    }
+  }
+
+  const onDeleteUser = async (userId: string) => {
+    if (!access?.phone) return
+    if (!confirm("Are you sure you want to remove this member?")) return
+    
+    try {
+      await deleteUser(userId, access.phone)
+      toast.success("Member removed")
+      void fetchUsers()
+    } catch (error) {
+      toast.error("Failed to delete user")
+    }
   }
 
   if (isCheckingAccess) {
     return (
-      <div className="relative z-10 flex min-h-screen items-center justify-center bg-white px-4 py-12">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-slate-200 border-t-[#2E4A7D]" />
+      <div className="flex min-h-screen items-center justify-center bg-slate-50">
+        <RefreshCw className="h-8 w-8 animate-spin text-blue-900" />
       </div>
     )
   }
 
-  // Success View
-  if (hasSubmitted) {
+  // Admin Dashboard View
+  if (access?.role === 'admin') {
     return (
-      <div className="relative z-10 min-h-screen bg-slate-50 px-4 py-12">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mx-auto max-w-2xl overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl sm:mt-8"
-        >
-          <div className="h-2 w-full bg-[#2E4A7D]" />
-          <div className="space-y-6 p-10 text-center">
-            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100">
-              <CircleCheck className="h-8 w-8 text-emerald-600" />
-            </div>
-            <div className="space-y-2">
-              <h2 className="text-3xl font-bold text-slate-900">
-                {authMode === "login" ? "Login Complete" : "Registration Complete"}
-              </h2>
-              <p className="text-slate-600">
-                {authMode === "login"
-                  ? "Welcome back! You have successfully logged in."
-                  : "Thank you for registering. You now have access to the DaRa platform."}
-              </p>
-            </div>
-
-            <div className="flex flex-col gap-4 border-t border-slate-100 pt-6 sm:flex-row sm:justify-center">
-              {whatsAppUrl && authMode === "signup" && (
-                <Button
-                  asChild
-                  className="h-12 bg-emerald-600 px-8 font-medium text-white hover:bg-emerald-700"
-                >
-                  <a
-                    href={whatsAppUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    Open WhatsApp
-                  </a>
+      <div className="min-h-screen bg-slate-50 p-4 md:p-8">
+        <div className="mx-auto max-w-6xl space-y-8">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <Link href="/">
+                <Button variant="ghost" size="icon" className="rounded-full">
+                  <ArrowLeft className="h-6 w-6" />
                 </Button>
-              )}
-              <Button
-                asChild
-                variant="outline"
-                className="h-12 border-[#2E4A7D] px-8 text-[#2E4A7D] hover:bg-[#2E4A7D]/10"
-              >
-                <Link href="/">Back to Home</Link>
-              </Button>
+              </Link>
+              <h1 className="text-3xl font-extrabold text-blue-900">Admin Dashboard</h1>
+            </div>
+            <div className="flex items-center gap-2 rounded-full bg-blue-100 px-4 py-2 text-blue-800">
+              <ShieldCheck className="h-5 w-5" />
+              <span className="font-bold">Admin: {access.phone}</span>
             </div>
           </div>
-        </motion.div>
+
+          <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
+            {/* Add User Form */}
+            <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm lg:col-span-1">
+              <h2 className="mb-6 text-xl font-bold text-slate-900 flex items-center gap-2">
+                <Plus className="h-5 w-5 text-blue-600" /> Add Team Member
+              </h2>
+              <form onSubmit={userForm.handleSubmit(onAddUser)} className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label className="text-xs font-bold uppercase text-slate-500">First Name</Label>
+                    <Input {...userForm.register("firstName")} placeholder="John" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-xs font-bold uppercase text-slate-500">Last Name</Label>
+                    <Input {...userForm.register("lastName")} placeholder="Doe" />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs font-bold uppercase text-slate-500">Phone Number</Label>
+                  <Input {...userForm.register("phone")} placeholder="01XXXXXXXXX" />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs font-bold uppercase text-slate-500">Team Name</Label>
+                  <Input {...userForm.register("teamName")} placeholder="RoboKnights" />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs font-bold uppercase text-slate-500">Role</Label>
+                  <select 
+                    {...userForm.register("role")}
+                    className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="member">Member</option>
+                    <option value="servant">Servant</option>
+                  </select>
+                </div>
+                <Button type="submit" className="w-full bg-blue-900 font-bold hover:bg-blue-800" disabled={isAddingUser}>
+                  {isAddingUser ? <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> : "Include in Team"}
+                </Button>
+              </form>
+            </div>
+
+            {/* User List */}
+            <div className="rounded-2xl border border-slate-200 bg-white shadow-sm lg:col-span-2 overflow-hidden">
+               <div className="border-b border-slate-100 bg-slate-50/50 p-6 flex justify-between items-center">
+                 <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+                   <Users className="h-5 w-5 text-blue-600" /> Managed Members
+                 </h2>
+                 <Button variant="outline" size="sm" onClick={fetchUsers} disabled={isLoadingUsers}>
+                    <RefreshCw className={`h-4 w-4 ${isLoadingUsers ? 'animate-spin' : ''}`} />
+                 </Button>
+               </div>
+               <div className="p-0 overflow-x-auto">
+                 {managedUsers.length === 0 ? (
+                   <div className="py-20 text-center text-slate-400">
+                     No members added yet. Add your first member to get started.
+                   </div>
+                 ) : (
+                   <table className="w-full text-left">
+                     <thead className="bg-slate-50 text-xs font-bold uppercase text-slate-500">
+                       <tr>
+                         <th className="px-6 py-4">Name</th>
+                         <th className="px-6 py-4">Phone</th>
+                         <th className="px-6 py-4">Team</th>
+                         <th className="px-6 py-4">Role</th>
+                         <th className="px-6 py-4">Actions</th>
+                       </tr>
+                     </thead>
+                     <tbody className="divide-y divide-slate-100">
+                       {managedUsers.map((u) => (
+                         <tr key={u.id} className="hover:bg-slate-50/80 transition-colors">
+                           <td className="px-6 py-4 font-medium text-slate-900">{u.first_name} {u.last_name}</td>
+                           <td className="px-6 py-4 text-slate-600">{u.phone}</td>
+                           <td className="px-6 py-4"><span className="rounded-full bg-blue-50 px-2 py-1 text-xs font-bold text-blue-700">{u.team_name}</span></td>
+                           <td className="px-6 py-4 text-slate-600 capitalize">{u.role}</td>
+                           <td className="px-6 py-4">
+                             <Button variant="ghost" size="icon" className="text-slate-300 hover:text-red-600" onClick={() => onDeleteUser(u.id)}>
+                               <Trash2 className="h-4 w-4" />
+                             </Button>
+                           </td>
+                         </tr>
+                       ))}
+                     </tbody>
+                   </table>
+                 )}
+               </div>
+            </div>
+          </div>
+        </div>
       </div>
     )
   }
 
+  // Login View
   return (
-    <div className="relative min-h-screen bg-slate-50">
+    <div className="relative flex min-h-screen items-center justify-center bg-slate-50 px-4 py-12">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="w-full max-w-md overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl"
+      >
+        <div className="h-3 w-full bg-blue-900" />
+        <div className="p-8 md:p-12">
+          <div className="mb-10 flex flex-col items-center text-center">
+            <Image src="/icon-dara-logo.png" alt="DaRa Logo" width={80} height={80} className="mb-4" />
+            <h1 className="text-4xl font-extrabold tracking-tight text-blue-900">Welcome Back</h1>
+            <p className="mt-2 text-slate-500">Log in to your robotics dashboard</p>
+          </div>
 
-      <div className="relative z-10 px-4 py-12">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mx-auto max-w-3xl"
-        >
-          <form
-            onSubmit={form.handleSubmit(onSubmit, onInvalidSubmit)}
-            className="overflow-hidden rounded-xl border border-slate-200 bg-white/80 shadow-xl backdrop-blur-sm sm:mt-8"
-          >
-            <div className="h-2 w-full bg-[#2E4A7D]" />
-            <div className="mt-8 mb-2 flex flex-col items-center text-center">
-              <div className="flex items-center justify-center gap-0">
-                <Image
-                  src="/icon-dara-logo.png"
-                  alt="icon"
-                  width={70}
-                  height={70}
+          <form onSubmit={loginForm.handleSubmit(onLogin)} className="space-y-6">
+            <div className="space-y-2">
+              <Label className="text-sm font-bold text-slate-700">Phone Number</Label>
+              <div className="relative">
+                <div className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-slate-400 border-r border-slate-200 pr-3">+20</div>
+                <Input 
+                  {...loginForm.register("phone")}
+                  placeholder="01XXXXXXXXX" 
+                  className="h-14 border-slate-200 pl-16 text-lg transition-all focus:border-blue-900 focus:ring-4 focus:ring-blue-900/5"
                 />
-
-                <h1 className="text-4xl font-bold tracking-tight text-blue-900 sm:text-5xl">
-                  DaRa
-                </h1>
               </div>
-              <p className="mt-2 font-medium tracking-widest text-red-700 uppercase">
-                M&P Didaskalia Advanced Robotics Association
-              </p>
+              {loginForm.formState.errors.phone && (
+                <p className="text-xs font-medium text-red-500">{loginForm.formState.errors.phone.message}</p>
+              )}
             </div>
 
-            {/* Mode Switcher Buttons */}
-            <div className="flex justify-center gap-4 mt-6 mb-4">
-              <Button
-                type="button"
-                variant={authMode === "signup" ? "default" : "outline"}
-                className={
-                  authMode === "signup"
-                    ? "bg-red-700 text-white hover:bg-red-800 w-32"
-                    : "text-white border-slate-300 hover:text-white hover:bg-red-800 bg-red-700 w-32"
-                }
-                onClick={() => {
-                  setAuthMode("signup")
-                  form.clearErrors()
-                  setSubmissionStatus(null)
-                }}
-              >
-                Sign Up
-              </Button>
-              <Button
-                type="button"
-                variant={authMode === "login" ? "default" : "outline"}
-                className={
-                  authMode === "login"
-                    ? "bg-yellow-600 text-white hover:bg-yellow-600 w-32"
-                    : "text-white border-slate-300 hover:bg-yellow-500 bg-yellow-600 w-32 hover:text-white"
-                }
-                onClick={() => {
-                  setAuthMode("login")
-                  form.clearErrors()
-                  setSubmissionStatus(null)
-                }}
-              >
-                Login
-              </Button>
-            </div>
-
-            <div className="mx-auto h-1 w-1/2 bg-slate-400" />
-            <div className="space-y-10 p-8">
-              {/* Servant Section - 2x2 Grid */}
-              <div className="space-y-6">
-                <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
-                  <User className="h-5 w-5 text-blue-700" />
-                  <h2 className="text-xl font-bold text-blue-800">
-                    {authMode === "signup" ? "Servant Identification" : "Login"}
-                  </h2>
-                </div>
-
-                <div className={authMode === "login" ? "flex flex-col items-center justify-center" : "grid grid-cols-1 gap-x-8 gap-y-6 md:grid-cols-2"}>
-                  {authMode === "signup" && (
-                    <>
-                      <div className="space-y-2">
-                        <Label
-                          htmlFor="teamName"
-                          className="text-sm font-semibold text-[#2E4A7D]"
-                        >
-                          Team Name
-                        </Label>
-                        <Input
-                          id="teamName"
-                          placeholder="Enter Team Name"
-                          className="border-slate-200 bg-slate-50 transition-all focus:bg-white"
-                          {...form.register("teamName")}
-                        />
-                        {form.formState.errors.teamName && (
-                          <p className="mt-1 text-xs text-red-600">
-                            {form.formState.errors.teamName.message}
-                          </p>
-                        )}
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label
-                          htmlFor="name"
-                          className="text-sm font-semibold text-[#2E4A7D]"
-                        >
-                          Full Name
-                        </Label>
-                        <Input
-                          id="name"
-                          placeholder="Enter Servant Name"
-                          className="border-slate-200 bg-slate-50 transition-all focus:bg-white"
-                          {...form.register("name")}
-                        />
-                        {form.formState.errors.name && (
-                          <p className="mt-1 text-xs text-red-600">
-                            {form.formState.errors.name.message}
-                          </p>
-                        )}
-                      </div>
-                    </>
-                  )}
-
-                  {authMode === "signup" && (
-                    <div className="space-y-2">
-                      <Label
-                        htmlFor="email"
-                        className="text-sm font-semibold text-slate-700"
-                      >
-                        Email Address
-                      </Label>
-                      <Input
-                        id="email"
-                        type="email"
-                        placeholder="example@church.com"
-                        className="border-slate-200 bg-slate-50 transition-all focus:bg-white"
-                        {...form.register("email")}
-                      />
-                      {form.formState.errors.email && (
-                        <p className="mt-1 text-xs text-red-600">
-                          {form.formState.errors.email.message}
-                        </p>
-                      )}
-                    </div>
-                  )}
-
-                  <div className={`space-y-2 ${authMode === "login" ? "w-full max-w-sm text-center" : ""}`}>
-                    <Label
-                      htmlFor="phone"
-                      className="text-sm font-semibold text-slate-700"
-                    >
-                      Phone Number
-                    </Label>
-                    <div className="relative">
-                      <Input
-                        id="phone"
-                        placeholder="01XXXXXXXXX"
-                        className="border-slate-200 bg-slate-50 transition-all focus:bg-white pl-12"
-                        {...form.register("phone", {
-                          onChange: (e) => {
-                            e.target.value = e.target.value.replace(/\D/g, "").slice(0, 11)
-                          }
-                        })}
-                      />
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm font-bold border-r border-slate-300 pr-2">
-                        +20
-                      </span>
-                    </div>
-                    {form.formState.errors.phone && (
-                      <p className="mt-1 text-xs text-red-600">
-                        {form.formState.errors.phone.message}
-                      </p>
-                    )}
-                  </div>
-
-                  {authMode === "signup" && (
-                    <>
-                      <div className="space-y-2">
-                        <Label
-                          htmlFor="paymentReference"
-                          className="text-sm font-semibold text-slate-700"
-                        >
-                          Payment Reference
-                        </Label>
-                        <Input
-                          id="paymentReference"
-                          placeholder="Enter InstaPay reference"
-                          className="border-slate-200 bg-slate-50 transition-all focus:bg-white"
-                          {...form.register("paymentReference")}
-                        />
-                        {form.formState.errors.paymentReference && (
-                          <p className="mt-1 text-xs text-red-600">
-                            {form.formState.errors.paymentReference.message}
-                          </p>
-                        )}
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label
-                          htmlFor="DOB"
-                          className="text-sm font-semibold text-slate-700"
-                        >
-                          Date of Birth
-                        </Label>
-                        <Input
-                          id="DOB"
-                          type="date"
-                          className="border-slate-200 bg-slate-50 transition-all focus:bg-white"
-                          {...form.register("DOB")}
-                        />
-                        {form.formState.errors.DOB && (
-                          <p className="mt-1 text-xs text-red-600">
-                            {form.formState.errors.DOB.message}
-                          </p>
-                        )}
-                      </div>
-                    </>
-                  )}
-                </div>
-              </div>
-
-              {/* Members Section */}
-              {authMode === "signup" && (
-                <div className="space-y-6">
-                  <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                    <div className="flex items-center gap-2">
-                      <Users className="h-5 w-5 text-[#2E4A7D]" />
-                      <h2 className="text-xl font-bold text-slate-800">
-                        Members
-                      </h2>
-                    </div>
-                    <Button
-                      type="button"
-                      size="sm"
-                      onClick={() =>
-                        fields.length < 15 &&
-                        append({ name: "", DOB: "", PhoneNumber: "" })
-                      }
-                      disabled={fields.length >= 15}
-                      className="border-[#F5A623] bg-white text-[#F5A623] hover:bg-[#F5A623] hover:text-white transition-colors"
-                    >
-                      <Plus className="mr-1 h-4 w-4" /> Add Member
-                    </Button>
-                  </div>
-
-                  <AnimatePresence>
-                    {fields.length === 0 ? (
-                      <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        className="rounded-lg border border-slate-200 bg-slate-50 py-10 text-center"
-                      >
-                        <p className="text-sm text-slate-500">
-                          No members added to the unit yet
-                        </p>
-                      </motion.div>
-                    ) : (
-                      <div className="space-y-4">
-                        {fields.map((field, index) => (
-                          <motion.div
-                            key={field.id}
-                            initial={{ opacity: 0, x: -10 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            exit={{ opacity: 0, scale: 0.95 }}
-                            className="group relative rounded-lg border border-slate-200 bg-white p-5 shadow-sm"
-                          >
-                            <button
-                              type="button"
-                              onClick={() => remove(index)}
-                              className="absolute top-2 right-2 text-slate-300 transition-colors hover:text-red-500"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
-
-                            <div className="mt-2 grid grid-cols-1 gap-4 md:grid-cols-3">
-                              <div className="space-y-1">
-                                <Input
-                                  placeholder="Name"
-                                  className="h-9 border-slate-100 bg-slate-50"
-                                  {...form.register(`members.${index}.name`)}
-                                />
-                              </div>
-                              <div className="space-y-1">
-                                <Input
-                                  placeholder="Phone"
-                                  className="h-9 border-slate-100 bg-slate-50"
-                                  {...form.register(
-                                    `members.${index}.PhoneNumber`
-                                  )}
-                                />
-                              </div>
-                              <div className="space-y-1">
-                                <Input
-                                  type="date"
-                                  className="h-9 border-slate-100 bg-slate-50"
-                                  {...form.register(`members.${index}.DOB`)}
-                                />
-                              </div>
-                            </div>
-                          </motion.div>
-                        ))}
-                      </div>
-                    )}
-                  </AnimatePresence>
-                </div>
-              )}
-
-              <div className="mx-auto h-1 w-1/2 bg-slate-400" />
-
-              {submissionStatus && (
-                <div
-                  role="status"
-                  className={
-                    submissionStatus.type === "success"
-                      ? "flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800"
-                      : "rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700"
-                  }
-                >
-                  {submissionStatus.type === "success" && (
-                    <CircleCheck className="h-5 w-5 shrink-0" />
-                  )}
-                  <span>{submissionStatus.message}</span>
-                </div>
-              )}
-
-              {whatsAppUrl && authMode === "signup" && (
-                <Button
-                  asChild
-                  variant="outline"
-                  className="h-12 w-full border-emerald-300 text-emerald-800 hover:bg-emerald-50"
-                >
-                  <a href={whatsAppUrl}>Open WhatsApp</a>
-                </Button>
-              )}
-
-              <Button
-                type="submit"
-                className="flex h-14 w-full gap-2 rounded-lg bg-red-800 text-lg font-bold text-white shadow-lg shadow-blue-100 transition-all hover:bg-red-600"
-                disabled={isSubmitting || hasSubmitted}
-              >
-                {isSubmitting ? (
-                  <>
-                    <span className="h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-                    {authMode === "login" ? "Logging in..." : "Submitting..."}
-                  </>
-                ) : (
-                  <>
-                    {authMode === "login" ? <LogIn className="h-5 w-5" /> : <Send className="h-5 w-5" />}
-                    {authMode === "login" ? "Login" : "Submit"}
-                  </>
-                )}
-              </Button>
-            </div>
+            <Button 
+              type="submit" 
+              className="h-14 w-full rounded-xl bg-blue-900 text-lg font-bold text-white shadow-lg shadow-blue-900/20 transition-all hover:bg-blue-800 hover:shadow-xl active:scale-[0.98]"
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? <RefreshCw className="mr-2 h-5 w-5 animate-spin" /> : <LogIn className="mr-2 h-5 w-5" />}
+              {isSubmitting ? "Verifying..." : "Access Platform"}
+            </Button>
           </form>
-        </motion.div>
-      </div>
+
+          <div className="mt-8 border-t border-slate-100 pt-8 text-center">
+            <p className="text-sm text-slate-500">
+              Not on a team? Contact your team administrator for access.
+            </p>
+            <Link href="/" className="mt-4 flex items-center justify-center gap-1 text-sm font-bold text-blue-900 hover:underline">
+               <ArrowLeft className="h-4 w-4" /> Return to Home
+            </Link>
+          </div>
+        </div>
+      </motion.div>
     </div>
   )
 }
