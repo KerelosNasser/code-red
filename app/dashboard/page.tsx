@@ -151,7 +151,7 @@ function MemberRow({
       </div>
       <div className="flex items-center gap-2">
         {isServant && (
-          <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-bold tracking-wider text-blue-700 uppercase">
+          <span className="rounded-full bg-yellow-600 px-2 py-0.5 text-[10px] font-bold tracking-wider text-yellow-50/90 uppercase">
             Servant
           </span>
         )}
