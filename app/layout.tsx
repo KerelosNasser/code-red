@@ -33,7 +33,7 @@ export default function RootLayout({
       )}
     >
       <body
-        className="relative min-h-screen bg-cover bg-center bg-no-repeat flex flex-col font-sans"
+        className="relative flex min-h-screen flex-col bg-cover bg-center bg-no-repeat font-sans"
         suppressHydrationWarning
       >
         <ThemeProvider>
