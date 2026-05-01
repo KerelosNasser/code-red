@@ -1,5 +1,12 @@
 export const ACCESS_STORAGE_KEY = "dara_access"
 export const SESSION_VALIDATED_KEY = "dara_session_validated"
+export const AUTH_CHANGE_EVENT = "dara_auth_change"
+
+export function triggerAuthChange() {
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event(AUTH_CHANGE_EVENT))
+  }
+}
 
 export type StoredAccess = {
   phone: string
@@ -56,12 +63,14 @@ export function storeAccess(access: StoredAccess) {
   if (typeof window === "undefined") return
   localStorage.setItem(ACCESS_STORAGE_KEY, JSON.stringify(access))
   setSessionValidated(true)
+  triggerAuthChange()
 }
 
 export function clearStoredAccess() {
   if (typeof window === "undefined") return
   localStorage.removeItem(ACCESS_STORAGE_KEY)
   sessionStorage.removeItem(SESSION_VALIDATED_KEY)
+  triggerAuthChange()
 }
 
 export function isAdmin(): boolean {

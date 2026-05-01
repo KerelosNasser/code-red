@@ -20,3 +20,15 @@ test("isAdmin helper is provided", () => {
   assert.match(access, /export function isAdmin\(\)/)
   assert.match(access, /role === 'admin'/)
 })
+
+test("auth change event and trigger are defined", () => {
+  assert.match(access, /export const AUTH_CHANGE_EVENT = "dara_auth_change"/)
+  assert.match(access, /export function triggerAuthChange\(\)/)
+})
+
+test("storeAccess and clearStoredAccess call triggerAuthChange", () => {
+  // Check storeAccess implementation
+  assert.match(access, /function storeAccess\(access: StoredAccess\) \{[\s\S]*triggerAuthChange\(\)/)
+  // Check clearStoredAccess implementation
+  assert.match(access, /function clearStoredAccess\(\) \{[\s\S]*triggerAuthChange\(\)/)
+})
