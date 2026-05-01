@@ -15,7 +15,9 @@ const CONFIG = {
 };
 
 const SHEET_SCHEMAS = {
-  Users: ["id", "first_name", "last_name", "phone", "role", "team_name", "managed_by", "created_at"],
+  Users: ["id", "first_name", "last_name", "phone", "role", "team_id", "managed_by", "created_at"],
+  Teams: ["id", "name", "admin_phone", "created_at"],
+  Admins: ["phone", "first_name", "last_name"],
   Submissions: ["id", "user_id", "type", "payload", "status", "created_at"],
   Products: ["id", "title", "description", "price", "image_url"]
 };
@@ -50,6 +52,16 @@ function doGet(e) {
           return json({ success: false, error: "Unauthorized" });
         }
         return json(UserService.getManagedUsers(parameters.adminPhone));
+      case "getTeams":
+        if (parameters.token !== CONFIG.SECRET) {
+          return json({ success: false, error: "Unauthorized" });
+        }
+        return json(TeamService.getTeams(parameters.adminPhone));
+      case "getAdmin":
+        if (parameters.token !== CONFIG.SECRET) {
+          return json({ success: false, error: "Unauthorized" });
+        }
+        return json(AdminService.get(parameters.phone));
       case "setupDatabase":
         if (parameters.token !== CONFIG.SECRET) {
           return json({ success: false, error: "Unauthorized" });
@@ -78,6 +90,12 @@ function doPost(e) {
         return json(UserService.upsert(body.payload));
       case "deleteUser":
         return json(UserService.remove(body.userId, body.adminPhone));
+      case "createTeam":
+        return json(TeamService.create(body.payload));
+      case "deleteTeam":
+        return json(TeamService.remove(body.teamId, body.adminPhone));
+      case "upsertAdmin":
+        return json(AdminService.upsert(body.payload));
       case "submitPurchase":
         return json(SubmissionService.handlePurchase(body.payload));
       default:
@@ -166,6 +184,76 @@ const ProductService = {
   }
 };
 
+const AdminService = {
+  get: function(phone) {
+    const normalizedPhone = UserService.normalizePhone(phone);
+    const admins = SheetUtils.readAll("Admins");
+    const admin = admins.find(function(a) {
+      return UserService.normalizePhone(a.phone) === normalizedPhone;
+    });
+    return { success: true, data: admin || null };
+  },
+
+  upsert: function(payload) {
+    const inputPhone = UserService.normalizePhone(payload.phone);
+    const admins = SheetUtils.readAll("Admins");
+    const existingIndex = admins.findIndex(function(a) {
+      return UserService.normalizePhone(a.phone) === inputPhone;
+    });
+
+    const adminData = [
+      inputPhone,
+      payload.firstName || "",
+      payload.lastName || ""
+    ];
+
+    if (existingIndex !== -1) {
+      SheetUtils.updateRow("Admins", existingIndex + 2, adminData);
+    } else {
+      SheetUtils.appendRow("Admins", adminData);
+    }
+
+    return { success: true, data: { phone: inputPhone } };
+  }
+};
+
+const TeamService = {
+  getTeams: function(adminPhone) {
+    const normalizedAdmin = UserService.normalizePhone(adminPhone);
+    const teams = SheetUtils.readAll("Teams");
+    const managed = teams.filter(function(t) {
+      return UserService.normalizePhone(t.admin_phone) === normalizedAdmin;
+    });
+    return { success: true, data: managed };
+  },
+
+  create: function(payload) {
+    const teamId = Utilities.getUuid();
+    SheetUtils.appendRow("Teams", [
+      teamId,
+      payload.name,
+      UserService.normalizePhone(payload.adminPhone),
+      new Date().toISOString()
+    ]);
+    return { success: true, data: { teamId: teamId } };
+  },
+
+  remove: function(teamId, adminPhone) {
+    const teams = SheetUtils.readAll("Teams");
+    const index = teams.findIndex(function(t) { return t.id === teamId; });
+    
+    if (index === -1) throw new Error("Team not found");
+    
+    const team = teams[index];
+    if (UserService.normalizePhone(team.admin_phone) !== UserService.normalizePhone(adminPhone)) {
+       throw new Error("Unauthorized to delete this team");
+    }
+
+    SheetUtils.deleteRow("Teams", index + 2);
+    return { success: true };
+  }
+};
+
 const UserService = {
   normalizePhone: function(phone) {
     return String(phone || "").replace(/\D/g, '').replace(/^0+/, '');
@@ -188,7 +276,7 @@ const UserService = {
         hasAccess: true,
         user: user,
         role: user.role,
-        teamName: user.team_name
+        teamId: user.team_id
       }
     };
   },
@@ -206,7 +294,7 @@ const UserService = {
       payload.lastName || "",
       inputPhone,
       payload.role || "member",
-      payload.teamName || "",
+      payload.teamId || "",
       payload.managedBy || "",
       payload.createdAt || new Date().toISOString()
     ];

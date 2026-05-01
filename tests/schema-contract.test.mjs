@@ -6,7 +6,8 @@ const codeGs = readFileSync(new URL("../docs/google-apps-script/Code.gs", import
 const apiClient = readFileSync(new URL("../lib/api-client.ts", import.meta.url), "utf8")
 
 const expectedSchema = {
-  Users: ["id", "first_name", "last_name", "phone", "role", "team_name", "managed_by", "created_at"],
+  Users: ["id", "first_name", "last_name", "phone", "role", "team_id", "managed_by", "created_at"],
+  Teams: ["id", "name", "admin_phone", "created_at"],
   Submissions: ["id", "user_id", "type", "payload", "status", "created_at"],
   Products: ["id", "title", "description", "price", "image_url"],
 }

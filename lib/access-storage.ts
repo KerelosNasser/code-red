@@ -11,7 +11,7 @@ export function triggerAuthChange() {
 export type StoredAccess = {
   phone: string
   role: 'admin' | 'servant' | 'member'
-  teamName?: string
+  teamId?: string
   firstName?: string
   lastName?: string
 }
@@ -35,7 +35,7 @@ export function getStoredAccess(): StoredAccess | null {
     return {
       phone: parsed.phone,
       role: parsed.role as 'admin' | 'servant' | 'member',
-      teamName: parsed.teamName,
+      teamId: parsed.teamId,
       firstName: parsed.firstName,
       lastName: parsed.lastName
     }

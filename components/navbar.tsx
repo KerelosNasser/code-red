@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useEffect, useState } from "react"
-import { getStoredAccess } from "@/lib/access-storage"
+import { getStoredAccess, clearStoredAccess } from "@/lib/access-storage"
 import { Button } from "./ui/button"
 import { ShoppingCart, Menu, X, LayoutDashboard } from "lucide-react"
 import { useCartStore } from "@/lib/store/cart"
@@ -50,20 +50,10 @@ export function Navbar() {
     after:h-[2px] after:w-0 after:bg-[#F5A623] after:transition-all 
     after:duration-300 hover:after:w-full`
 
-  const CartLink = () => (
-    <Link
-      href="/cart"
-      className="relative flex items-center text-white transition-colors hover:text-[#F5A623]"
-      onClick={() => setIsMobileMenuOpen(false)}
-    >
-      <ShoppingCart className="h-6 w-6" />
-      {isClient && cartItemsCount > 0 && (
-        <span className="absolute -top-2 -right-2 flex h-5 w-5 items-center justify-center rounded-full bg-red-600 text-[10px] font-bold text-white ring-2 ring-blue-950">
-          {cartItemsCount}
-        </span>
-      )}
-    </Link>
-  )
+  const handleLogout = () => {
+    clearStoredAccess()
+    window.location.href = "/"
+  }
 
   return (
     <nav className="sticky top-0 z-50 w-full bg-blue-950/90 shadow-sm backdrop-blur-md">
@@ -108,15 +98,27 @@ export function Navbar() {
               <Link href="/store" className={linkStyle("/store")}>
                 Store
               </Link>
-              <Link href="/register" className={linkStyle("/register")}>
+              <Link href="/dashboard" className={linkStyle("/dashboard")}>
                 <span className="flex items-center gap-1">
-                  <LayoutDashboard className="h-4 w-4" /> Registration
+                  <LayoutDashboard className="h-4 w-4" /> Dashboard
                 </span>
               </Link>
             </>
           )}
 
-          {isAdmin && <CartLink />}
+          {isAdmin && (
+            <Link
+              href="/cart"
+              className="relative flex items-center text-white transition-colors hover:text-[#F5A623]"
+            >
+              <ShoppingCart className="h-6 w-6" />
+              {isClient && cartItemsCount > 0 && (
+                <span className="absolute -top-2 -right-2 flex h-5 w-5 items-center justify-center rounded-full bg-red-600 text-[10px] font-bold text-white ring-2 ring-blue-950">
+                  {cartItemsCount}
+                </span>
+              )}
+            </Link>
+          )}
 
           {!hasAccess && (
             <Button
@@ -133,11 +135,7 @@ export function Navbar() {
               variant="ghost"
               size="sm"
               className="text-white hover:text-red-400"
-              onClick={() => {
-                const { clearStoredAccess } = require("@/lib/access-storage")
-                clearStoredAccess()
-                window.location.href = "/"
-              }}
+              onClick={handleLogout}
             >
               Logout
             </Button>
@@ -146,7 +144,20 @@ export function Navbar() {
 
         {/* Mobile Controls */}
         <div className="flex items-center gap-5 md:hidden">
-          {isAdmin && <CartLink />}
+          {isAdmin && (
+            <Link
+              href="/cart"
+              className="relative flex items-center text-white transition-colors hover:text-[#F5A623]"
+              onClick={() => setIsMobileMenuOpen(false)}
+            >
+              <ShoppingCart className="h-6 w-6" />
+              {isClient && cartItemsCount > 0 && (
+                <span className="absolute -top-2 -right-2 flex h-5 w-5 items-center justify-center rounded-full bg-red-600 text-[10px] font-bold text-white ring-2 ring-blue-950">
+                  {cartItemsCount}
+                </span>
+              )}
+            </Link>
+          )}
           <button
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
             className="text-white hover:text-[#F5A623] focus:outline-none"
@@ -180,8 +191,8 @@ export function Navbar() {
               <Link href="/store" className={linkStyle("/store")}>
                 Store
               </Link>
-              <Link href="/register" className={linkStyle("/register")}>
-                Registration
+              <Link href="/dashboard" className={linkStyle("/dashboard")}>
+                Dashboard
               </Link>
             </>
           )}
@@ -197,11 +208,7 @@ export function Navbar() {
             <Button
               variant="destructive"
               className="w-full"
-              onClick={() => {
-                const { clearStoredAccess } = require("@/lib/access-storage")
-                clearStoredAccess()
-                window.location.href = "/"
-              }}
+              onClick={handleLogout}
             >
               Logout
             </Button>

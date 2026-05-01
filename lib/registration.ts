@@ -15,12 +15,12 @@ export const userUpsertSchema = z.object({
     .min(11, "Phone number must be 11 digits")
     .max(11, "Phone number must be 11 digits"),
   role: z.enum(["admin", "servant", "member"]),
-  teamName: z.string().optional(),
+  teamId: z.string().min(1, "Team is required"),
 })
 
 export function normalizePhoneNumber(phone: string): string {
   // Remove all non-digits
-  let cleaned = phone.replace(/\D/g, "")
+  const cleaned = phone.replace(/\D/g, "")
 
   // Egyptian logic:
   // If it starts with 0 and has 11 digits (e.g., 01211730727), replace 0 with 2

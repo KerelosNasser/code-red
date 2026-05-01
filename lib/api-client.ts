@@ -7,9 +7,22 @@ export interface User {
   last_name: string
   phone: string
   role: 'admin' | 'servant' | 'member'
-  team_name: string
+  team_id: string
   managed_by: string
   created_at: string
+}
+
+export interface Team {
+  id: string
+  name: string
+  admin_phone: string
+  created_at: string
+}
+
+export interface AdminProfile {
+  phone: string
+  first_name: string
+  last_name: string
 }
 
 export interface AccessCheckPayload {
@@ -111,6 +124,85 @@ export async function deleteUser(userId: string, adminPhone: string) {
   })
 
   return parseGasResponse(response, "Failed to delete user")
+}
+
+export async function getTeams(adminPhone: string) {
+  if (!GAS_URL) throw new Error("GAS_URL is not configured")
+
+  const url = `${GAS_URL}?action=getTeams&token=${encodeURIComponent(
+    GAS_SECRET
+  )}&adminPhone=${encodeURIComponent(adminPhone)}`
+  const response = await fetch(url)
+  return parseGasResponse(response, "Failed to fetch teams")
+}
+
+export async function createTeam(payload: { name: string; adminPhone: string }) {
+  if (!GAS_URL) throw new Error("GAS_URL is not configured")
+
+  const response = await fetch(GAS_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "text/plain;charset=utf-8",
+    },
+    body: JSON.stringify({
+      action: "createTeam",
+      token: GAS_SECRET,
+      payload,
+    }),
+  })
+
+  return parseGasResponse(response, "Failed to create team")
+}
+
+export async function deleteTeam(teamId: string, adminPhone: string) {
+  if (!GAS_URL) throw new Error("GAS_URL is not configured")
+
+  const response = await fetch(GAS_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "text/plain;charset=utf-8",
+    },
+    body: JSON.stringify({
+      action: "deleteTeam",
+      token: GAS_SECRET,
+      teamId,
+      adminPhone,
+    }),
+  })
+
+  return parseGasResponse(response, "Failed to delete team")
+}
+
+export async function getAdminProfile(phone: string) {
+  if (!GAS_URL) throw new Error("GAS_URL is not configured")
+
+  const url = `${GAS_URL}?action=getAdmin&token=${encodeURIComponent(
+    GAS_SECRET
+  )}&phone=${encodeURIComponent(phone)}`
+  const response = await fetch(url)
+  return parseGasResponse(response, "Failed to fetch admin profile")
+}
+
+export async function updateAdminProfile(payload: {
+  phone: string
+  firstName: string
+  lastName: string
+}) {
+  if (!GAS_URL) throw new Error("GAS_URL is not configured")
+
+  const response = await fetch(GAS_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "text/plain;charset=utf-8",
+    },
+    body: JSON.stringify({
+      action: "upsertAdmin",
+      token: GAS_SECRET,
+      payload,
+    }),
+  })
+
+  return parseGasResponse(response, "Failed to update admin profile")
 }
 
 export async function submitPurchase(

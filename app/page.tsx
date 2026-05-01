@@ -27,20 +27,15 @@ import {
 } from "@/lib/api-client"
 import { Button } from "@/components/ui/button"
 import { useRouter } from "next/navigation"
+import { normalizePhoneNumber } from "@/lib/registration"
 
-interface Course {
-  id: string
-  title: string
-  description: string
-}
-
-interface Product {
-  id: string
-  title: string
-  description: string
-  price: string
-  image_url?: string
-}
+const ADMIN_PHONES = (
+  process.env.NEXT_PUBLIC_ADMIN_PHONES ||
+  process.env.NEXT_PUBLIC_ADMIN_WHATSAPP_PHONE ||
+  ""
+)
+  .split(",")
+  .map((p) => normalizePhoneNumber(p.trim()))
 
 export default function HomePage() {
   const router = useRouter()
@@ -56,7 +51,10 @@ export default function HomePage() {
       setAccess(stored)
 
       try {
-        if (stored && isSessionValidated()) {
+        if (stored && stored.role === "admin" && ADMIN_PHONES.includes(normalizePhoneNumber(stored.phone))) {
+          setIsValidated(true)
+          setSessionValidated(true)
+        } else if (stored && isSessionValidated()) {
           setIsValidated(true)
         } else if (stored) {
           try {
