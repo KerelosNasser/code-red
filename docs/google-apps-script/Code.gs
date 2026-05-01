@@ -203,8 +203,8 @@ const AdminService = {
 
     const adminData = [
       inputPhone,
-      payload.firstName || "",
-      payload.lastName || ""
+      payload.first_name || payload.firstName || "",
+      payload.last_name || payload.lastName || ""
     ];
 
     if (existingIndex !== -1) {
@@ -256,7 +256,16 @@ const TeamService = {
 
 const UserService = {
   normalizePhone: function(phone) {
-    return String(phone || "").replace(/\D/g, '').replace(/^0+/, '');
+    let cleaned = String(phone || "").replace(/\D/g, '');
+    
+    // Egyptian logic: match frontend lib/registration.ts
+    if (cleaned.startsWith("0") && cleaned.length === 11) {
+      return "2" + cleaned;
+    }
+    if (cleaned.startsWith("1") && cleaned.length === 10) {
+      return "20" + cleaned;
+    }
+    return cleaned;
   },
 
   checkAccess: function(phone) {
@@ -276,7 +285,8 @@ const UserService = {
         hasAccess: true,
         user: user,
         role: user.role,
-        teamId: user.team_id
+        teamId: user.team_id || user.teamId,
+        team_id: user.team_id || user.teamId
       }
     };
   },
@@ -290,13 +300,13 @@ const UserService = {
 
     const userData = [
       payload.id || Utilities.getUuid(),
-      payload.firstName || "",
-      payload.lastName || "",
+      payload.first_name || payload.firstName || "",
+      payload.last_name || payload.lastName || "",
       inputPhone,
       payload.role || "member",
-      payload.teamId || "",
-      payload.managedBy || "",
-      payload.createdAt || new Date().toISOString()
+      payload.team_id || payload.teamId || "",
+      payload.managed_by || payload.managedBy || "",
+      payload.created_at || payload.createdAt || new Date().toISOString()
     ];
 
     if (existingIndex !== -1) {
@@ -315,7 +325,7 @@ const UserService = {
     if (index === -1) throw new Error("User not found");
     
     const user = users[index];
-    if (user.managed_by !== this.normalizePhone(adminPhone)) {
+    if (this.normalizePhone(user.managed_by) !== this.normalizePhone(adminPhone)) {
        throw new Error("Unauthorized to delete this user");
     }
 
@@ -327,7 +337,7 @@ const UserService = {
     const normalizedAdmin = this.normalizePhone(adminPhone);
     const users = SheetUtils.readAll("Users");
     const managed = users.filter(function(u) {
-      return u.managed_by === normalizedAdmin;
+      return UserService.normalizePhone(u.managed_by) === normalizedAdmin;
     });
 
     return { success: true, data: managed };

@@ -23,6 +23,7 @@ import {
   TrendingUp,
   Menu,
   X,
+  Group,
 } from "lucide-react"
 import {
   getManagedUsers,
@@ -76,7 +77,7 @@ function StatCard({
   return (
     <div className="relative overflow-hidden rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
       <div
-        className="absolute right-0 top-0 h-20 w-20 rounded-bl-[3rem] opacity-10"
+        className="absolute top-0 right-0 h-20 w-20 rounded-bl-[3rem] opacity-10"
         style={{ background: accent }}
       />
       <div
@@ -88,7 +89,7 @@ function StatCard({
       <p className="text-3xl font-black tracking-tight text-slate-900">
         {value}
       </p>
-      <p className="mt-0.5 text-xs font-semibold uppercase tracking-wider text-slate-400">
+      <p className="mt-0.5 text-xs font-semibold tracking-wider text-slate-400 uppercase">
         {label}
       </p>
     </div>
@@ -97,13 +98,7 @@ function StatCard({
 
 // ─── Avatar ───────────────────────────────────────────────────────────────────
 
-function Avatar({
-  name,
-  size = "md",
-}: {
-  name: string
-  size?: "sm" | "md"
-}) {
+function Avatar({ name, size = "md" }: { name: string; size?: "sm" | "md" }) {
   const initials = name
     .split(" ")
     .map((n) => n[0])
@@ -121,10 +116,7 @@ function Avatar({
   ]
   const color = colors[name.charCodeAt(0) % colors.length]
 
-  const cls =
-    size === "sm"
-      ? "h-7 w-7 text-[10px]"
-      : "h-9 w-9 text-xs"
+  const cls = size === "sm" ? "h-7 w-7 text-[10px]" : "h-9 w-9 text-xs"
 
   return (
     <div
@@ -151,7 +143,7 @@ function MemberRow({
   return (
     <div className="group flex items-center justify-between rounded-xl px-3 py-2.5 transition-colors hover:bg-slate-50">
       <div className="flex items-center gap-3">
-        <Avatar name={fullName} size="sm" />
+        <Avatar name={fullName} size="md" />
         <div>
           <p className="text-sm font-semibold text-slate-800">{fullName}</p>
           <p className="text-xs text-slate-400">{user.phone}</p>
@@ -159,13 +151,13 @@ function MemberRow({
       </div>
       <div className="flex items-center gap-2">
         {isServant && (
-          <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-blue-700">
+          <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-bold tracking-wider text-blue-700 uppercase">
             Servant
           </span>
         )}
         <button
           onClick={() => onDelete(user.id)}
-          className="invisible flex h-7 w-7 items-center justify-center rounded-lg text-slate-300 transition-colors hover:bg-red-50 hover:text-red-500 group-hover:visible"
+          className="invisible flex h-7 w-7 items-center justify-center rounded-lg text-slate-300 transition-colors group-hover:visible hover:bg-red-50 hover:text-red-500"
         >
           <Trash2 className="h-3.5 w-3.5" />
         </button>
@@ -181,11 +173,13 @@ function TeamCard({
   users,
   onDeleteTeam,
   onDeleteUser,
+  onOpenAddUser,
 }: {
   team: GasTeam
   users: GasUser[]
   onDeleteTeam: (id: string) => void
   onDeleteUser: (id: string) => void
+  onOpenAddUser: () => void
 }) {
   const servants = users.filter((u) => u.role === "servant")
   const members = users.filter((u) => u.role === "member")
@@ -194,16 +188,16 @@ function TeamCard({
   return (
     <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
       {/* Team Header */}
-      <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/60 px-5 py-4">
+      <div className="flex items-center justify-between border-b px-5 py-4">
         <button
           onClick={() => setExpanded((v) => !v)}
           className="flex flex-1 items-center gap-3 text-left"
         >
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-900 text-white">
-            <Target className="h-4 w-4" />
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-800 text-white">
+            <UserCircle className="h-4 w-4" />
           </div>
           <div>
-            <h3 className="text-base font-bold text-slate-900">{team.name}</h3>
+            <h3 className="text- font-bold text-blue-800">{team.name}</h3>
             <div className="flex items-center gap-3 text-xs text-slate-400">
               <span className="flex items-center gap-1">
                 <ShieldCheck className="h-3 w-3 text-blue-500" />
@@ -248,7 +242,7 @@ function TeamCard({
           {/* Servants */}
           {servants.length > 0 && (
             <div className="px-4 py-3">
-              <p className="mb-1 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-blue-600">
+              <p className="mb-1 flex items-center gap-1.5 text-[10px] font-bold tracking-widest text-blue-600 uppercase">
                 <ShieldCheck className="h-3 w-3" />
                 Servants
               </p>
@@ -262,14 +256,24 @@ function TeamCard({
 
           {/* Members */}
           <div className="px-4 py-3">
-            <p className="mb-1 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-slate-400">
+            <p className="mb-1 flex items-center gap-1.5 text-[10px] font-bold tracking-widest text-slate-400 uppercase">
               <Users className="h-3 w-3" />
               Members
             </p>
             {members.length === 0 ? (
-              <p className="py-3 text-center text-xs italic text-slate-300">
-                No members assigned yet
-              </p>
+              <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 py-6 text-center">
+                <p className="text-m py-3 text-center text-slate-400">
+                  No members assigned yet
+                </p>
+                <Button
+                  size="sm"
+                  className="h-9 rounded-xl bg-red-700 font-semibold hover:bg-red-600"
+                  onClick={onOpenAddUser}
+                >
+                  <UserPlus className="mr-1.5 h-3.5 w-3.5" />
+                  Add Person
+                </Button>
+              </div>
             ) : (
               <div>
                 {members.map((u) => (
@@ -307,10 +311,7 @@ function Sidebar({
 }) {
   return (
     <aside
-      className={`
-        flex h-full flex-col border-r border-slate-200 bg-white transition-all duration-300
-        ${collapsed ? "w-16" : "w-64"}
-      `}
+      className={`hidden h-full flex-col border-r border-slate-200 bg-white transition-all duration-300 md:flex ${collapsed ? "w-16" : "w-64"} `}
     >
       {/* Logo / Toggle */}
       <div className="flex h-16 items-center justify-between border-b border-slate-100 px-4">
@@ -323,11 +324,7 @@ function Sidebar({
           onClick={onToggle}
           className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100"
         >
-          {collapsed ? (
-            <Menu className="h-4 w-4" />
-          ) : (
-            <X className="h-4 w-4" />
-          )}
+          {collapsed ? <Menu className="h-4 w-4" /> : <X className="h-4 w-4" />}
         </button>
       </div>
 
@@ -454,7 +451,13 @@ export default function DashboardPage() {
 
   const userForm = useForm<UserUpsertValues>({
     resolver: zodResolver(userUpsertSchema),
-    defaultValues: { firstName: "", lastName: "", phone: "", role: "member", teamId: "" },
+    defaultValues: {
+      firstName: "",
+      lastName: "",
+      phone: "",
+      role: "member",
+      teamId: "",
+    },
   })
 
   const onUpdateProfile = async (e: React.FormEvent) => {
@@ -462,7 +465,11 @@ export default function DashboardPage() {
     if (!access?.phone) return
     setIsUpdatingProfile(true)
     try {
-      await updateAdminProfile({ phone: access.phone, firstName: profileFirstName, lastName: profileLastName })
+      await updateAdminProfile({
+        phone: access.phone,
+        firstName: profileFirstName,
+        lastName: profileLastName,
+      })
       toast.success("Profile updated")
       setIsProfileOpen(false)
       void fetchAdminProfile(access.phone)
@@ -574,10 +581,10 @@ export default function DashboardPage() {
         {/* Topbar */}
         <header className="flex h-16 shrink-0 items-center justify-between border-b border-slate-200 bg-white px-6">
           <div>
-            <h1 className="text-lg font-black text-slate-900">
+            <h1 className="text-sm font-black text-slate-900 md:text-lg">
               Organization Overview
             </h1>
-            <p className="text-xs text-slate-400">
+            <p className="hidden text-slate-400 md:text-xs">
               Manage your teams and members
             </p>
           </div>
@@ -657,23 +664,32 @@ export default function DashboardPage() {
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label>First Name</Label>
-                      <Input {...userForm.register("firstName")} placeholder="John" />
+                      <Input
+                        {...userForm.register("firstName")}
+                        placeholder="John"
+                      />
                     </div>
                     <div className="space-y-2">
                       <Label>Last Name</Label>
-                      <Input {...userForm.register("lastName")} placeholder="Doe" />
+                      <Input
+                        {...userForm.register("lastName")}
+                        placeholder="Doe"
+                      />
                     </div>
                   </div>
                   <div className="space-y-2">
                     <Label>Phone Number</Label>
-                    <Input {...userForm.register("phone")} placeholder="01XXXXXXXXX" />
+                    <Input
+                      {...userForm.register("phone")}
+                      placeholder="01XXXXXXXXX"
+                    />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label>Team</Label>
                       <select
                         {...userForm.register("teamId")}
-                        className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
                       >
                         <option value="">Select a team</option>
                         {teams.map((t) => (
@@ -687,7 +703,7 @@ export default function DashboardPage() {
                       <Label>Role</Label>
                       <select
                         {...userForm.register("role")}
-                        className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
                       >
                         <option value="member">Member</option>
                         <option value="servant">Servant</option>
@@ -739,7 +755,7 @@ export default function DashboardPage() {
 
           {/* Section header */}
           <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-sm font-bold uppercase tracking-widest text-slate-400">
+            <h2 className="text-sm font-bold tracking-widest text-slate-400 uppercase">
               Teams &amp; Members
             </h2>
             <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-500">
@@ -751,11 +767,9 @@ export default function DashboardPage() {
           {teams.length === 0 ? (
             <div className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-200 bg-white py-20 text-center">
               <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-50">
-                <Target className="h-8 w-8 text-blue-900" />
+                <User className="h-8 w-8 text-blue-900" />
               </div>
-              <h3 className="text-lg font-bold text-slate-800">
-                No Teams Yet
-              </h3>
+              <h3 className="text-lg font-bold text-slate-800">No Teams Yet</h3>
               <p className="mt-1 max-w-xs text-sm text-slate-400">
                 Create your first team to start organizing members into groups.
               </p>
@@ -779,6 +793,7 @@ export default function DashboardPage() {
                     users={teamUsers}
                     onDeleteTeam={onDeleteTeam}
                     onDeleteUser={onDeleteUser}
+                    onOpenAddUser={() => setIsAddUserOpen(true)}
                   />
                 )
               })}
@@ -814,7 +829,11 @@ export default function DashboardPage() {
             </div>
             <div className="space-y-2">
               <Label>Phone (Reference)</Label>
-              <Input value={access?.phone || ""} disabled className="bg-slate-50" />
+              <Input
+                value={access?.phone || ""}
+                disabled
+                className="bg-slate-50"
+              />
             </div>
             <Button
               type="submit"
