@@ -8,8 +8,23 @@ import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { toast } from "sonner"
 import { motion, AnimatePresence } from "framer-motion"
-import { Users, User, LogIn, ArrowLeft, Plus, Trash2, ShieldCheck, RefreshCw } from "lucide-react"
-import { checkUserAccess, getManagedUsers, upsertUser, deleteUser, type User as GasUser } from "@/lib/api-client"
+import {
+  Users,
+  User,
+  LogIn,
+  ArrowLeft,
+  Plus,
+  Trash2,
+  ShieldCheck,
+  RefreshCw,
+} from "lucide-react"
+import {
+  checkUserAccess,
+  getManagedUsers,
+  upsertUser,
+  deleteUser,
+  type User as GasUser,
+} from "@/lib/api-client"
 import {
   clearStoredAccess,
   getStoredAccess,
@@ -22,19 +37,21 @@ import {
   normalizePhoneNumber,
   userUpsertSchema,
   type LoginFormValues,
-  type UserUpsertValues
+  type UserUpsertValues,
 } from "@/lib/registration"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 
-const ADMIN_PHONES = (process.env.NEXT_PUBLIC_ADMIN_PHONES || "").split(",").map(p => normalizePhoneNumber(p.trim()))
+const ADMIN_PHONES = (process.env.NEXT_PUBLIC_ADMIN_PHONES || "")
+  .split(",")
+  .map((p) => normalizePhoneNumber(p.trim()))
 
 export default function RegisterPage() {
   const router = useRouter()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isCheckingAccess, setIsCheckingAccess] = useState(true)
   const [access, setAccess] = useState<ReturnType<typeof getStoredAccess>>(null)
-  
+
   // Dashboard states
   const [managedUsers, setManagedUsers] = useState<GasUser[]>([])
   const [isLoadingUsers, setIsLoadingUsers] = useState(false)
@@ -81,12 +98,14 @@ export default function RegisterPage() {
     }
 
     void verifyStoredAccess()
-    return () => { isMounted = false }
+    return () => {
+      isMounted = false
+    }
   }, [])
 
   // Fetch managed users if admin
   useEffect(() => {
-    if (access?.role === 'admin') {
+    if (access?.role === "admin") {
       void fetchUsers()
     }
   }, [access])
@@ -106,12 +125,18 @@ export default function RegisterPage() {
 
   const loginForm = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
-    defaultValues: { phone: "" }
+    defaultValues: { phone: "" },
   })
 
   const userForm = useForm<UserUpsertValues>({
     resolver: zodResolver(userUpsertSchema),
-    defaultValues: { firstName: "", lastName: "", phone: "", role: "member", teamName: "" }
+    defaultValues: {
+      firstName: "",
+      lastName: "",
+      phone: "",
+      role: "member",
+      teamName: "",
+    },
   })
 
   const onLogin = async (values: LoginFormValues) => {
@@ -122,9 +147,9 @@ export default function RegisterPage() {
     if (ADMIN_PHONES.includes(normalizedPhone)) {
       const adminAccess = {
         phone: normalizedPhone,
-        role: 'admin' as const,
+        role: "admin" as const,
         firstName: "Admin",
-        lastName: ""
+        lastName: "",
       }
       storeAccess(adminAccess)
       setAccess(adminAccess)
@@ -140,10 +165,10 @@ export default function RegisterPage() {
       if (result.data?.hasAccess) {
         const userAccess = {
           phone: normalizedPhone,
-          role: result.data.role || 'member',
+          role: result.data.role || "member",
           teamName: result.data.teamName || "",
           firstName: result.data.user?.first_name || "",
-          lastName: result.data.user?.last_name || ""
+          lastName: result.data.user?.last_name || "",
         }
         storeAccess(userAccess)
         setAccess(userAccess)
@@ -151,7 +176,9 @@ export default function RegisterPage() {
         toast.success("Login successful!")
         router.push("/")
       } else {
-        toast.error("Account not found. Please contact your team admin to be included.")
+        toast.error(
+          "Account not found. Please contact your team admin to be included."
+        )
       }
     } catch (error) {
       toast.error("Connection error. Please try again.")
@@ -172,7 +199,7 @@ export default function RegisterPage() {
         role: values.role,
         team_name: values.teamName,
         managed_by: normalizePhoneNumber(access.phone),
-        created_at: new Date().toISOString()
+        created_at: new Date().toISOString(),
       })
       toast.success(`${values.firstName} added successfully`)
       userForm.reset()
@@ -187,7 +214,7 @@ export default function RegisterPage() {
   const onDeleteUser = async (userId: string) => {
     if (!access?.phone) return
     if (!confirm("Are you sure you want to remove this member?")) return
-    
+
     try {
       await deleteUser(userId, access.phone)
       toast.success("Member removed")
@@ -206,7 +233,7 @@ export default function RegisterPage() {
   }
 
   // Admin Dashboard View
-  if (access?.role === 'admin') {
+  if (access?.role === "admin") {
     return (
       <div className="min-h-screen bg-slate-50 p-4 md:p-8">
         <div className="mx-auto max-w-6xl space-y-8">
@@ -217,7 +244,9 @@ export default function RegisterPage() {
                   <ArrowLeft className="h-6 w-6" />
                 </Button>
               </Link>
-              <h1 className="text-3xl font-extrabold text-blue-900">Admin Dashboard</h1>
+              <h1 className="text-3xl font-extrabold text-blue-900">
+                Admin Dashboard
+              </h1>
             </div>
             <div className="flex items-center gap-2 rounded-full bg-blue-100 px-4 py-2 text-blue-800">
               <ShieldCheck className="h-5 w-5" />
@@ -228,88 +257,146 @@ export default function RegisterPage() {
           <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
             {/* Add User Form */}
             <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm lg:col-span-1">
-              <h2 className="mb-6 text-xl font-bold text-slate-900 flex items-center gap-2">
+              <h2 className="mb-6 flex items-center gap-2 text-xl font-bold text-slate-900">
                 <Plus className="h-5 w-5 text-blue-600" /> Add Team Member
               </h2>
-              <form onSubmit={userForm.handleSubmit(onAddUser)} className="space-y-4">
+              <form
+                onSubmit={userForm.handleSubmit(onAddUser)}
+                className="space-y-4"
+              >
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label className="text-xs font-bold uppercase text-slate-500">First Name</Label>
-                    <Input {...userForm.register("firstName")} placeholder="John" />
+                    <Label className="text-xs font-bold text-slate-500 uppercase">
+                      First Name
+                    </Label>
+                    <Input
+                      {...userForm.register("firstName")}
+                      placeholder="John"
+                    />
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-xs font-bold uppercase text-slate-500">Last Name</Label>
-                    <Input {...userForm.register("lastName")} placeholder="Doe" />
+                    <Label className="text-xs font-bold text-slate-500 uppercase">
+                      Last Name
+                    </Label>
+                    <Input
+                      {...userForm.register("lastName")}
+                      placeholder="Doe"
+                    />
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-xs font-bold uppercase text-slate-500">Phone Number</Label>
-                  <Input {...userForm.register("phone")} placeholder="01XXXXXXXXX" />
+                  <Label className="text-xs font-bold text-slate-500 uppercase">
+                    Phone Number
+                  </Label>
+                  <Input
+                    {...userForm.register("phone")}
+                    placeholder="01XXXXXXXXX"
+                  />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-xs font-bold uppercase text-slate-500">Team Name</Label>
-                  <Input {...userForm.register("teamName")} placeholder="RoboKnights" />
+                  <Label className="text-xs font-bold text-slate-500 uppercase">
+                    Team Name
+                  </Label>
+                  <Input
+                    {...userForm.register("teamName")}
+                    placeholder="RoboKnights"
+                  />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-xs font-bold uppercase text-slate-500">Role</Label>
-                  <select 
+                  <Label className="text-xs font-bold text-slate-500 uppercase">
+                    Role
+                  </Label>
+                  <select
                     {...userForm.register("role")}
-                    className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
                   >
                     <option value="member">Member</option>
                     <option value="servant">Servant</option>
                   </select>
                 </div>
-                <Button type="submit" className="w-full bg-blue-900 font-bold hover:bg-blue-800" disabled={isAddingUser}>
-                  {isAddingUser ? <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> : "Include in Team"}
+                <Button
+                  type="submit"
+                  className="w-full bg-blue-900 font-bold hover:bg-blue-800"
+                  disabled={isAddingUser}
+                >
+                  {isAddingUser ? (
+                    <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    "Include in Team"
+                  )}
                 </Button>
               </form>
             </div>
 
             {/* User List */}
-            <div className="rounded-2xl border border-slate-200 bg-white shadow-sm lg:col-span-2 overflow-hidden">
-               <div className="border-b border-slate-100 bg-slate-50/50 p-6 flex justify-between items-center">
-                 <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-                   <Users className="h-5 w-5 text-blue-600" /> Managed Members
-                 </h2>
-                 <Button variant="outline" size="sm" onClick={fetchUsers} disabled={isLoadingUsers}>
-                    <RefreshCw className={`h-4 w-4 ${isLoadingUsers ? 'animate-spin' : ''}`} />
-                 </Button>
-               </div>
-               <div className="p-0 overflow-x-auto">
-                 {managedUsers.length === 0 ? (
-                   <div className="py-20 text-center text-slate-400">
-                     No members added yet. Add your first member to get started.
-                   </div>
-                 ) : (
-                   <table className="w-full text-left">
-                     <thead className="bg-slate-50 text-xs font-bold uppercase text-slate-500">
-                       <tr>
-                         <th className="px-6 py-4">Name</th>
-                         <th className="px-6 py-4">Phone</th>
-                         <th className="px-6 py-4">Team</th>
-                         <th className="px-6 py-4">Role</th>
-                         <th className="px-6 py-4">Actions</th>
-                       </tr>
-                     </thead>
-                     <tbody className="divide-y divide-slate-100">
-                       {managedUsers.map((u) => (
-                         <tr key={u.id} className="hover:bg-slate-50/80 transition-colors">
-                           <td className="px-6 py-4 font-medium text-slate-900">{u.first_name} {u.last_name}</td>
-                           <td className="px-6 py-4 text-slate-600">{u.phone}</td>
-                           <td className="px-6 py-4"><span className="rounded-full bg-blue-50 px-2 py-1 text-xs font-bold text-blue-700">{u.team_name}</span></td>
-                           <td className="px-6 py-4 text-slate-600 capitalize">{u.role}</td>
-                           <td className="px-6 py-4">
-                             <Button variant="ghost" size="icon" className="text-slate-300 hover:text-red-600" onClick={() => onDeleteUser(u.id)}>
-                               <Trash2 className="h-4 w-4" />
-                             </Button>
-                           </td>
-                         </tr>
-                       ))}
-                     </tbody>
-                   </table>
-                 )}
-               </div>
+            <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm lg:col-span-2">
+              <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/50 p-6">
+                <h2 className="flex items-center gap-2 text-xl font-bold text-slate-900">
+                  <Users className="h-5 w-5 text-blue-600" /> Managed Members
+                </h2>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={fetchUsers}
+                  disabled={isLoadingUsers}
+                >
+                  <RefreshCw
+                    className={`h-4 w-4 ${isLoadingUsers ? "animate-spin" : ""}`}
+                  />
+                </Button>
+              </div>
+              <div className="overflow-x-auto p-0">
+                {managedUsers.length === 0 ? (
+                  <div className="py-20 text-center text-slate-400">
+                    No members added yet. Add your first member to get started.
+                  </div>
+                ) : (
+                  <table className="w-full text-left">
+                    <thead className="bg-slate-50 text-xs font-bold text-slate-500 uppercase">
+                      <tr>
+                        <th className="px-6 py-4">Name</th>
+                        <th className="px-6 py-4">Phone</th>
+                        <th className="px-6 py-4">Team</th>
+                        <th className="px-6 py-4">Role</th>
+                        <th className="px-6 py-4">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {managedUsers.map((u) => (
+                        <tr
+                          key={u.id}
+                          className="transition-colors hover:bg-slate-50/80"
+                        >
+                          <td className="px-6 py-4 font-medium text-slate-900">
+                            {u.first_name} {u.last_name}
+                          </td>
+                          <td className="px-6 py-4 text-slate-600">
+                            {u.phone}
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className="rounded-full bg-blue-50 px-2 py-1 text-xs font-bold text-blue-700">
+                              {u.team_name}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 text-slate-600 capitalize">
+                            {u.role}
+                          </td>
+                          <td className="px-6 py-4">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="text-slate-300 hover:text-red-600"
+                              onClick={() => onDeleteUser(u.id)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -328,33 +415,56 @@ export default function RegisterPage() {
         <div className="h-3 w-full bg-blue-900" />
         <div className="p-8 md:p-12">
           <div className="mb-10 flex flex-col items-center text-center">
-            <Image src="/icon-dara-logo.png" alt="DaRa Logo" width={80} height={80} className="mb-4" />
-            <h1 className="text-4xl font-extrabold tracking-tight text-blue-900">Welcome Back</h1>
-            <p className="mt-2 text-slate-500">Log in to your robotics dashboard</p>
+            <Image
+              src="/icon-dara-logo.png"
+              alt="DaRa Logo"
+              width={80}
+              height={80}
+              className="mb-4"
+            />
+            <h1 className="text-4xl font-extrabold tracking-tight text-blue-900">
+              Welcome Back
+            </h1>
+            <p className="mt-2 text-slate-500">
+              Log in to your robotics dashboard
+            </p>
           </div>
 
-          <form onSubmit={loginForm.handleSubmit(onLogin)} className="space-y-6">
+          <form
+            onSubmit={loginForm.handleSubmit(onLogin)}
+            className="space-y-6"
+          >
             <div className="space-y-2">
-              <Label className="text-sm font-bold text-slate-700">Phone Number</Label>
+              <Label className="text-sm font-bold text-slate-700">
+                Phone Number
+              </Label>
               <div className="relative">
-                <div className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-slate-400 border-r border-slate-200 pr-3">+20</div>
-                <Input 
+                <div className="absolute top-1/2 left-4 -translate-y-1/2 border-r border-slate-200 pr-3 font-bold text-slate-400">
+                  +20
+                </div>
+                <Input
                   {...loginForm.register("phone")}
-                  placeholder="01XXXXXXXXX" 
+                  placeholder="01XXXXXXXXX"
                   className="h-14 border-slate-200 pl-16 text-lg transition-all focus:border-blue-900 focus:ring-4 focus:ring-blue-900/5"
                 />
               </div>
               {loginForm.formState.errors.phone && (
-                <p className="text-xs font-medium text-red-500">{loginForm.formState.errors.phone.message}</p>
+                <p className="text-xs font-medium text-red-500">
+                  {loginForm.formState.errors.phone.message}
+                </p>
               )}
             </div>
 
-            <Button 
-              type="submit" 
+            <Button
+              type="submit"
               className="h-14 w-full rounded-xl bg-blue-900 text-lg font-bold text-white shadow-lg shadow-blue-900/20 transition-all hover:bg-blue-800 hover:shadow-xl active:scale-[0.98]"
               disabled={isSubmitting}
             >
-              {isSubmitting ? <RefreshCw className="mr-2 h-5 w-5 animate-spin" /> : <LogIn className="mr-2 h-5 w-5" />}
+              {isSubmitting ? (
+                <RefreshCw className="mr-2 h-5 w-5 animate-spin" />
+              ) : (
+                <LogIn className="mr-2 h-5 w-5" />
+              )}
               {isSubmitting ? "Verifying..." : "Access Platform"}
             </Button>
           </form>
@@ -363,8 +473,11 @@ export default function RegisterPage() {
             <p className="text-sm text-slate-500">
               Not on a team? Contact your team administrator for access.
             </p>
-            <Link href="/" className="mt-4 flex items-center justify-center gap-1 text-sm font-bold text-blue-900 hover:underline">
-               <ArrowLeft className="h-4 w-4" /> Return to Home
+            <Link
+              href="/"
+              className="mt-4 flex items-center justify-center gap-1 text-sm font-bold text-blue-900 hover:underline"
+            >
+              <ArrowLeft className="h-4 w-4" /> Return to Home
             </Link>
           </div>
         </div>
