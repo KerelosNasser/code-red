@@ -219,10 +219,10 @@ const AdminService = {
 
 const TeamService = {
   getTeams: function(adminPhone) {
-    const normalizedAdmin = UserService.normalizePhone(adminPhone);
+    const adminComp = UserService.getComparisonPhone(adminPhone);
     const teams = SheetUtils.readAll("Teams");
     const managed = teams.filter(function(t) {
-      return UserService.normalizePhone(t.admin_phone) === normalizedAdmin;
+      return UserService.getComparisonPhone(t.admin_phone) === adminComp;
     });
     return { success: true, data: managed };
   },
@@ -268,11 +268,20 @@ const UserService = {
     return cleaned;
   },
 
+  // Internal helper for comparison only
+  getComparisonPhone: function(phone) {
+    let cleaned = String(phone || "").replace(/\D/g, '');
+    if (cleaned.length >= 10) {
+      return cleaned.slice(-10); // Match last 10 digits (e.g. 1211730727)
+    }
+    return cleaned;
+  },
+
   checkAccess: function(phone) {
-    const inputPhone = this.normalizePhone(phone);
+    const inputComp = this.getComparisonPhone(phone);
     const users = SheetUtils.readAll("Users");
     const user = users.find(function(record) {
-      return UserService.normalizePhone(record.phone) === inputPhone;
+      return UserService.getComparisonPhone(record.phone) === inputComp;
     });
 
     if (!user) {
@@ -294,8 +303,10 @@ const UserService = {
   upsert: function(payload) {
     const inputPhone = this.normalizePhone(payload.phone);
     const users = SheetUtils.readAll("Users");
+    const inputComp = this.getComparisonPhone(inputPhone);
+    
     const existingIndex = users.findIndex(function(u) {
-      return UserService.normalizePhone(u.phone) === inputPhone;
+      return UserService.getComparisonPhone(u.phone) === inputComp;
     });
 
     const userData = [
@@ -318,26 +329,11 @@ const UserService = {
     return { success: true, data: { userId: userData[0] } };
   },
 
-  remove: function(userId, adminPhone) {
-    const users = SheetUtils.readAll("Users");
-    const index = users.findIndex(function(u) { return u.id === userId; });
-    
-    if (index === -1) throw new Error("User not found");
-    
-    const user = users[index];
-    if (this.normalizePhone(user.managed_by) !== this.normalizePhone(adminPhone)) {
-       throw new Error("Unauthorized to delete this user");
-    }
-
-    SheetUtils.deleteRow("Users", index + 2);
-    return { success: true };
-  },
-
   getManagedUsers: function(adminPhone) {
-    const normalizedAdmin = this.normalizePhone(adminPhone);
+    const adminComp = this.getComparisonPhone(adminPhone);
     const users = SheetUtils.readAll("Users");
     const managed = users.filter(function(u) {
-      return UserService.normalizePhone(u.managed_by) === normalizedAdmin;
+      return UserService.getComparisonPhone(u.managed_by) === adminComp;
     });
 
     return { success: true, data: managed };

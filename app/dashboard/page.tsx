@@ -797,6 +797,31 @@ export default function DashboardPage() {
                   />
                 )
               })}
+
+              {/* Unassigned Members */}
+              {managedUsers.filter(
+                (u) => !u.team_id || !teams.find((t) => t.id === u.team_id)
+              ).length > 0 && (
+                <div className="mt-8">
+                  <h3 className="mb-3 text-xs font-bold tracking-widest text-slate-400 uppercase">
+                    Unassigned Members
+                  </h3>
+                  <div className="rounded-2xl border border-slate-200 bg-white p-2">
+                    {managedUsers
+                      .filter(
+                        (u) =>
+                          !u.team_id || !teams.find((t) => t.id === u.team_id)
+                      )
+                      .map((u) => (
+                        <MemberRow
+                          key={u.id}
+                          user={u}
+                          onDelete={onDeleteUser}
+                        />
+                      ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </main>
