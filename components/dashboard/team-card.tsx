@@ -46,7 +46,7 @@ export function TeamCard({
             <UserCircle className="h-4 w-4" />
           </div>
           <div>
-            <h3 className="text- font-bold text-blue-800">{team.name}</h3>
+            <h3 className="text-base font-bold text-blue-800">{team.name}</h3>
             <div className="flex items-center gap-3 text-xs text-slate-400">
               <span className="flex items-center gap-1">
                 <ShieldCheck className="h-3 w-3 text-blue-500" />
@@ -108,7 +108,7 @@ export function TeamCard({
             </p>
             {members.length === 0 ? (
               <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 py-6 text-center">
-                <p className="text-m py-3 text-center text-slate-400">
+                <p className="text-sm py-3 text-center text-slate-400">
                   No members assigned yet
                 </p>
                 <Button
