@@ -272,10 +272,11 @@ export default function HomeClient({ featuredCourses, featuredProducts }: HomeCl
                     className="group overflow-hidden rounded-2xl border border-white/10 bg-white/5 transition-all hover:bg-white/10"
                   >
                     <div className="relative flex aspect-square items-center justify-center bg-white/10">
-                      {product.image_url ? (
-                        <Image
-                          src={product.image_url}
-                          alt={product.title}
+                      {product.imageUrl ? (
+                                            <Image
+                                              src={product.imageUrl}
+                                              alt={product.title}
+
                           fill
                           className="object-cover transition-transform group-hover:scale-105"
                         />

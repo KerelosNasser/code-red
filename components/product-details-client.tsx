@@ -13,7 +13,7 @@ interface Product {
   title: string
   description: string
   price: string | number
-  image_url?: string
+  imageUrl?: string
 }
 
 interface ProductDetailsClientProps {
@@ -28,7 +28,7 @@ export default function ProductDetailsClient({ product }: ProductDetailsClientPr
       id: product.id,
       title: product.title,
       price: product.price,
-      image_url: product.image_url,
+      imageUrl: product.imageUrl,
     })
     toast.success(`${product.title} added to cart`)
   }
@@ -47,9 +47,9 @@ export default function ProductDetailsClient({ product }: ProductDetailsClientPr
         {/* Product Image */}
         <div className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 p-8">
           <div className="relative flex aspect-square items-center justify-center">
-            {product.image_url ? (
+            {product.imageUrl ? (
               <img
-                src={product.image_url}
+                src={product.imageUrl}
                 alt={product.title}
                 className="h-full w-full object-contain"
               />

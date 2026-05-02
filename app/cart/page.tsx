@@ -93,9 +93,9 @@ export default function CartPage() {
               className="flex items-center gap-6 rounded-xl border border-slate-200 bg-white p-6 shadow-sm"
             >
               <div className="flex h-24 w-24 items-center justify-center rounded-lg bg-slate-50 border border-slate-100 shrink-0">
-                {item.image_url ? (
+                {item.imageUrl ? (
                   <img
-                    src={item.image_url}
+                    src={item.imageUrl}
                     alt={item.title}
                     className="h-full w-full object-contain"
                   />

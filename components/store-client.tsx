@@ -13,7 +13,7 @@ interface Product {
   title: string
   description: string
   price: string | number
-  image_url?: string
+  imageUrl?: string
 }
 
 interface StoreClientProps {
@@ -40,7 +40,7 @@ export default function StoreClient({ initialProducts }: StoreClientProps) {
       id: product.id,
       title: product.title,
       price: product.price,
-      image_url: product.image_url,
+      imageUrl: product.imageUrl,
     })
     toast.success(`${product.title} added to cart`)
   }
@@ -90,9 +90,9 @@ export default function StoreClient({ initialProducts }: StoreClientProps) {
               className="group flex flex-col overflow-hidden rounded-xl border border-slate-200 bg-white transition-all hover:shadow-md"
             >
               <div className="relative flex h-50 items-center justify-center overflow-hidden bg-slate-100">
-                {product.image_url ? (
+                {product.imageUrl ? (
                   <img
-                    src={product.image_url}
+                    src={product.imageUrl}
                     alt={product.title}
                     className="h-full w-full object-cover transition-transform group-hover:scale-105"
                   />

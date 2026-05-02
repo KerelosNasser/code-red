@@ -15,11 +15,11 @@ const CONFIG = {
 };
 
 const SHEET_SCHEMAS = {
-  Users: ["id", "first_name", "last_name", "phone", "role", "team_id", "managed_by", "created_at"],
-  Teams: ["id", "name", "admin_phone", "created_at"],
-  Admins: ["phone", "first_name", "last_name"],
-  Submissions: ["id", "user_id", "type", "payload", "status", "created_at"],
-  Products: ["id", "title", "description", "price", "image_url"]
+  Users: ["id", "firstName", "lastName", "phone", "role", "teamId", "managedBy", "createdAt"],
+  Teams: ["id", "name", "adminPhone", "createdAt"],
+  Admins: ["phone", "firstName", "lastName"],
+  Submissions: ["id", "userId", "type", "payload", "status", "createdAt"],
+  Products: ["id", "title", "description", "price", "imageUrl"]
 };
 
 // Roles: 'admin', 'servant', 'member'
@@ -203,8 +203,8 @@ const AdminService = {
 
     const adminData = [
       inputPhone,
-      payload.first_name || payload.firstName || "",
-      payload.last_name || payload.lastName || ""
+      payload.firstName || "",
+      payload.lastName || ""
     ];
 
     if (existingIndex !== -1) {
@@ -222,7 +222,7 @@ const TeamService = {
     const adminComp = UserService.getComparisonPhone(adminPhone);
     const teams = SheetUtils.readAll("Teams");
     const managed = teams.filter(function(t) {
-      return UserService.getComparisonPhone(t.admin_phone) === adminComp;
+      return UserService.getComparisonPhone(t.adminPhone) === adminComp;
     });
     return { success: true, data: managed };
   },
@@ -245,7 +245,7 @@ const TeamService = {
     if (index === -1) throw new Error("Team not found");
     
     const team = teams[index];
-    if (UserService.normalizePhone(team.admin_phone) !== UserService.normalizePhone(adminPhone)) {
+    if (UserService.normalizePhone(team.adminPhone) !== UserService.normalizePhone(adminPhone)) {
        throw new Error("Unauthorized to delete this team");
     }
 
@@ -294,8 +294,7 @@ const UserService = {
         hasAccess: true,
         user: user,
         role: user.role,
-        teamId: user.team_id || user.teamId,
-        team_id: user.team_id || user.teamId
+        teamId: user.teamId
       }
     };
   },
@@ -314,13 +313,13 @@ const UserService = {
 
     const userData = [
       userId,
-      payload.first_name || payload.firstName || (existingUser ? (existingUser.first_name || existingUser.firstName) : ""),
-      payload.last_name || payload.lastName || (existingUser ? (existingUser.last_name || existingUser.lastName) : ""),
+      payload.firstName || (existingUser ? existingUser.firstName : ""),
+      payload.lastName || (existingUser ? existingUser.lastName : ""),
       inputPhone,
       payload.role || (existingUser ? existingUser.role : "member"),
-      payload.team_id || payload.teamId || (existingUser ? (existingUser.team_id || existingUser.teamId) : ""),
-      payload.managed_by || payload.managedBy || (existingUser ? (existingUser.managed_by || existingUser.managedBy) : ""),
-      payload.created_at || payload.createdAt || (existingUser ? (existingUser.created_at || existingUser.createdAt) : new Date().toISOString())
+      payload.teamId || (existingUser ? existingUser.teamId : ""),
+      payload.managedBy || (existingUser ? existingUser.managedBy : ""),
+      payload.createdAt || (existingUser ? existingUser.createdAt : new Date().toISOString())
     ];
 
     if (existingIndex !== -1) {
@@ -336,7 +335,7 @@ const UserService = {
     const adminComp = this.getComparisonPhone(adminPhone);
     const users = SheetUtils.readAll("Users");
     const managed = users.filter(function(u) {
-      return UserService.getComparisonPhone(u.managed_by) === adminComp;
+      return UserService.getComparisonPhone(u.managedBy) === adminComp;
     });
 
     return { success: true, data: managed };
@@ -350,7 +349,7 @@ const UserService = {
     
     const user = users[index];
     // Check if the admin is authorized to delete this user
-    if (UserService.getComparisonPhone(user.managed_by) !== UserService.getComparisonPhone(adminPhone)) {
+    if (UserService.getComparisonPhone(user.managedBy) !== UserService.getComparisonPhone(adminPhone)) {
        throw new Error("Unauthorized to delete this user");
     }
 
@@ -367,7 +366,7 @@ const UserService = {
 
     // Assets are shared by everyone managed by the same admin
     // Or if the user IS the admin, they see their own purchases
-    const ownerPhone = user.role === 'admin' ? inputPhone : user.managed_by;
+    const ownerPhone = user.role === 'admin' ? inputPhone : user.managedBy;
     
     const submissions = SheetUtils.readAll("Submissions");
     const purchases = submissions.filter(function(s) {
@@ -399,16 +398,26 @@ const UserService = {
 
 const SubmissionService = {
   handlePurchase: function(payload) {
-    const submissionId = Utilities.getUuid();
-    SheetUtils.appendRow("Submissions", [
-      submissionId,
-      payload.adminPhone,
+    const users = SheetUtils.readAll("Users");
+    const user = users.find(function(u) {
+      return UserService.normalizePhone(u.phone) === UserService.normalizePhone(payload.adminPhone);
+    });
+
+    if (!user) {
+      throw new Error("Admin account not found");
+    }
+
+    const submissionData = [
+      Utilities.getUuid(),
+      user.id,
       "purchase",
-      JSON.stringify(payload),
+      JSON.stringify({ productIds: payload.productIds }),
       "completed",
       new Date().toISOString()
-    ]);
-    return { success: true, data: { submissionId: submissionId } };
+    ];
+
+    SheetUtils.appendRow("Submissions", submissionData);
+    return { success: true };
   }
 };
 
@@ -446,7 +455,15 @@ const SheetUtils = {
 
     const values = sheet.getRange(1, 1, lastRow, lastColumn).getValues();
     const headers = values.shift().map(function(h) {
-      return String(h || "").toLowerCase().trim().replace(/\s+/g, '_');
+      const str = String(h || "").trim();
+      if (!str) return "";
+      // Convert anything (spaces, underscores, hyphens) to camelCase
+      const words = str.split(/[\s_-]+/);
+      return words.map(function(word, index) {
+        if (!word) return "";
+        if (index === 0) return word.toLowerCase();
+        return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+      }).join('');
     });
 
     const data = values

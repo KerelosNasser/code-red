@@ -13,7 +13,7 @@ interface Product {
   title: string
   description: string
   price: string | number
-  image_url?: string
+  imageUrl?: string
 }
 
 export default function AssetsPage() {
@@ -96,9 +96,9 @@ export default function AssetsPage() {
               className="group flex flex-col overflow-hidden rounded-xl border border-slate-200 bg-white transition-all hover:shadow-md"
             >
               <div className="relative flex h-48 items-center justify-center bg-slate-50">
-                {asset.image_url ? (
+                {asset.imageUrl ? (
                   <img
-                    src={asset.image_url}
+                    src={asset.imageUrl}
                     alt={asset.title}
                     className="h-full w-full object-contain p-4"
                   />

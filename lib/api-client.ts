@@ -29,28 +29,6 @@ export interface AccessCheckPayload {
   phone: string
 }
 
-/**
- * Recursively converts object keys to camelCase.
- * Handles `snake_case`, `Pascal_Snake_Case`, and `PascalCase`.
- */
-function toCamelCase(obj: unknown): any {
-  if (Array.isArray(obj)) {
-    return obj.map((v) => toCamelCase(v))
-  } else if (obj !== null && typeof obj === "object") {
-    return Object.keys(obj).reduce((result: Record<string, unknown>, key) => {
-      // Handle PascalCase by splitting before capital letters, then normalize underscores
-      const camelKey = key
-        .replace(/([a-z0-9])([A-Z])/g, "$1_$2")
-        .replace(/[-_]+(.)/g, (_, c) => c.toUpperCase())
-        .replace(/^(.)/, (c) => c.toLowerCase())
-
-      result[camelKey] = toCamelCase((obj as Record<string, unknown>)[key])
-      return result
-    }, {})
-  }
-  return obj
-}
-
 async function parseGasResponse(response: Response, fallbackMessage: string) {
   if (!response.ok) {
     console.error(`GAS API Error (${response.status}): ${response.statusText}`)
@@ -63,11 +41,6 @@ async function parseGasResponse(response: Response, fallbackMessage: string) {
     const errorMessage = result.error || fallbackMessage
     console.error("GAS API Business Logic Error:", errorMessage)
     throw new Error(errorMessage)
-  }
-
-  // Normalize keys to camelCase if data exists
-  if (result.data) {
-    result.data = toCamelCase(result.data)
   }
 
   return result
