@@ -29,16 +29,23 @@ export interface AccessCheckPayload {
   phone: string
 }
 
-function toCamelCase(obj: any): any {
+/**
+ * Recursively converts object keys to camelCase.
+ * Handles `snake_case`, `Pascal_Snake_Case`, and `PascalCase`.
+ */
+function toCamelCase(obj: unknown): any {
   if (Array.isArray(obj)) {
     return obj.map((v) => toCamelCase(v))
   } else if (obj !== null && typeof obj === "object") {
-    return Object.keys(obj).reduce((result, key) => {
-      const camelKey = key.replace(/(_\w)/g, (m) => m[1].toUpperCase())
-      return {
-        ...result,
-        [camelKey]: toCamelCase(obj[key]),
-      }
+    return Object.keys(obj).reduce((result: Record<string, unknown>, key) => {
+      // Handle PascalCase by splitting before capital letters, then normalize underscores
+      const camelKey = key
+        .replace(/([a-z0-9])([A-Z])/g, "$1_$2")
+        .replace(/[-_]+(.)/g, (_, c) => c.toUpperCase())
+        .replace(/^(.)/, (c) => c.toLowerCase())
+
+      result[camelKey] = toCamelCase((obj as Record<string, unknown>)[key])
+      return result
     }, {})
   }
   return obj
