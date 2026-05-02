@@ -110,9 +110,9 @@ export default function RegisterPage() {
     try {
       const result = await checkUserAccess({ phone: normalizedPhone })
       if (result.data?.hasAccess) {
-        const gasUser = result.data.user || {}
-        const fName = gasUser.firstName || ""
-        const lName = gasUser.lastName || ""
+        const gasUser = result.data.user
+        const fName = gasUser?.firstName || ""
+        const lName = gasUser?.lastName || ""
         
         const userAccess = {
           phone: normalizedPhone,

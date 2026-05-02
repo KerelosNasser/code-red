@@ -12,8 +12,8 @@ export default async function HomePage() {
       getCachedProducts(),
     ])
 
-    if (coursesRes.success) featuredCourses = coursesRes.data.slice(0, 3)
-    if (productsRes.success) featuredProducts = productsRes.data.slice(0, 3)
+    if (coursesRes.success) featuredCourses = coursesRes.data?.slice(0, 3) || []
+    if (productsRes.success) featuredProducts = productsRes.data?.slice(0, 3) || []
   } catch (error) {
     console.error("Failed to fetch home page data:", error)
   }

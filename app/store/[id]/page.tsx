@@ -14,7 +14,7 @@ async function ProductContent({ params }: PageProps) {
 
   try {
     const res = await getCachedProducts()
-    if (res.success && res.data?.length > 0) {
+    if (res.success && res.data && res.data.length > 0) {
       product = res.data.find((p: any) => String(p.id) === id)
     }
     

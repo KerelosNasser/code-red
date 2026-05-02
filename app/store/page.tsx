@@ -8,7 +8,7 @@ export default async function StorePage() {
 
   try {
     const res = await getCachedProducts()
-    if (res.success && res.data?.length > 0) {
+    if (res.success && res.data && res.data.length > 0) {
       products = res.data
     } else {
       products = MOCK_PRODUCTS

@@ -29,7 +29,23 @@ export interface AccessCheckPayload {
   phone: string
 }
 
-async function parseGasResponse(response: Response, fallbackMessage: string) {
+export interface GasResponse<T = any> {
+  success: boolean
+  data?: T
+  error?: string
+}
+
+export interface AccessCheckData {
+  hasAccess: boolean
+  user?: User
+  role?: "admin" | "servant" | "member"
+  teamId?: string
+}
+
+async function parseGasResponse<T = any>(
+  response: Response,
+  fallbackMessage: string
+): Promise<GasResponse<T>> {
   if (!response.ok) {
     console.error(`GAS API Error (${response.status}): ${response.statusText}`)
     throw new Error(`${fallbackMessage}: ${response.statusText}`)
@@ -43,10 +59,12 @@ async function parseGasResponse(response: Response, fallbackMessage: string) {
     throw new Error(errorMessage)
   }
 
-  return result
+  return result as GasResponse<T>
 }
 
-export async function checkUserAccess(payload: AccessCheckPayload) {
+export async function checkUserAccess(
+  payload: AccessCheckPayload
+): Promise<GasResponse<AccessCheckData>> {
   if (!GAS_URL) throw new Error("GAS_URL is not configured")
 
   const { phone } = payload
@@ -55,22 +73,24 @@ export async function checkUserAccess(payload: AccessCheckPayload) {
   )}&phone=${encodeURIComponent(phone)}`
   
   const response = await fetch(url)
-  return parseGasResponse(response, "User check failed")
+  return parseGasResponse<AccessCheckData>(response, "User check failed")
 }
 
-export async function getCoursesFromGas() {
+export async function getCoursesFromGas(): Promise<GasResponse<any[]>> {
   const url = `${GAS_URL}?action=getCourses`
   const response = await fetch(url)
-  return parseGasResponse(response, "Failed to fetch courses")
+  return parseGasResponse<any[]>(response, "Failed to fetch courses")
 }
 
-export async function getProductsFromGas() {
+export async function getProductsFromGas(): Promise<GasResponse<any[]>> {
   const url = `${GAS_URL}?action=getProducts`
   const response = await fetch(url)
-  return parseGasResponse(response, "Failed to fetch products")
+  return parseGasResponse<any[]>(response, "Failed to fetch products")
 }
 
-export async function getUserAssetsFromGas(payload: AccessCheckPayload) {
+export async function getUserAssetsFromGas(
+  payload: AccessCheckPayload
+): Promise<GasResponse<any[]>> {
   if (!GAS_URL) throw new Error("GAS_URL is not configured")
 
   const { phone } = payload
@@ -78,20 +98,24 @@ export async function getUserAssetsFromGas(payload: AccessCheckPayload) {
     GAS_SECRET
   )}&phone=${encodeURIComponent(phone)}`
   const response = await fetch(url)
-  return parseGasResponse(response, "Failed to fetch user assets")
+  return parseGasResponse<any[]>(response, "Failed to fetch user assets")
 }
 
-export async function getManagedUsers(adminPhone: string) {
+export async function getManagedUsers(
+  adminPhone: string
+): Promise<GasResponse<User[]>> {
   if (!GAS_URL) throw new Error("GAS_URL is not configured")
 
   const url = `${GAS_URL}?action=getManagedUsers&token=${encodeURIComponent(
     GAS_SECRET
   )}&adminPhone=${encodeURIComponent(adminPhone)}`
   const response = await fetch(url)
-  return parseGasResponse(response, "Failed to fetch managed users")
+  return parseGasResponse<User[]>(response, "Failed to fetch managed users")
 }
 
-export async function upsertUser(payload: Partial<User>) {
+export async function upsertUser(
+  payload: Partial<User>
+): Promise<GasResponse<{ userId: string }>> {
   if (!GAS_URL) throw new Error("GAS_URL is not configured")
 
   const response = await fetch(GAS_URL, {
@@ -106,10 +130,13 @@ export async function upsertUser(payload: Partial<User>) {
     }),
   })
 
-  return parseGasResponse(response, "Failed to save user")
+  return parseGasResponse<{ userId: string }>(response, "Failed to save user")
 }
 
-export async function deleteUser(userId: string, adminPhone: string) {
+export async function deleteUser(
+  userId: string,
+  adminPhone: string
+): Promise<GasResponse<void>> {
   if (!GAS_URL) throw new Error("GAS_URL is not configured")
 
   const response = await fetch(GAS_URL, {
@@ -125,20 +152,25 @@ export async function deleteUser(userId: string, adminPhone: string) {
     }),
   })
 
-  return parseGasResponse(response, "Failed to delete user")
+  return parseGasResponse<void>(response, "Failed to delete user")
 }
 
-export async function getTeams(adminPhone: string) {
+export async function getTeams(
+  adminPhone: string
+): Promise<GasResponse<Team[]>> {
   if (!GAS_URL) throw new Error("GAS_URL is not configured")
 
   const url = `${GAS_URL}?action=getTeams&token=${encodeURIComponent(
     GAS_SECRET
   )}&adminPhone=${encodeURIComponent(adminPhone)}`
   const response = await fetch(url)
-  return parseGasResponse(response, "Failed to fetch teams")
+  return parseGasResponse<Team[]>(response, "Failed to fetch teams")
 }
 
-export async function createTeam(payload: { name: string; adminPhone: string }) {
+export async function createTeam(payload: {
+  name: string
+  adminPhone: string
+}): Promise<GasResponse<{ teamId: string }>> {
   if (!GAS_URL) throw new Error("GAS_URL is not configured")
 
   const response = await fetch(GAS_URL, {
@@ -153,10 +185,13 @@ export async function createTeam(payload: { name: string; adminPhone: string }) 
     }),
   })
 
-  return parseGasResponse(response, "Failed to create team")
+  return parseGasResponse<{ teamId: string }>(response, "Failed to create team")
 }
 
-export async function deleteTeam(teamId: string, adminPhone: string) {
+export async function deleteTeam(
+  teamId: string,
+  adminPhone: string
+): Promise<GasResponse<void>> {
   if (!GAS_URL) throw new Error("GAS_URL is not configured")
 
   const response = await fetch(GAS_URL, {
@@ -172,24 +207,26 @@ export async function deleteTeam(teamId: string, adminPhone: string) {
     }),
   })
 
-  return parseGasResponse(response, "Failed to delete team")
+  return parseGasResponse<void>(response, "Failed to delete team")
 }
 
-export async function getAdminProfile(phone: string) {
+export async function getAdminProfile(
+  phone: string
+): Promise<GasResponse<AdminProfile>> {
   if (!GAS_URL) throw new Error("GAS_URL is not configured")
 
   const url = `${GAS_URL}?action=getAdmin&token=${encodeURIComponent(
     GAS_SECRET
   )}&phone=${encodeURIComponent(phone)}`
   const response = await fetch(url)
-  return parseGasResponse(response, "Failed to fetch admin profile")
+  return parseGasResponse<AdminProfile>(response, "Failed to fetch admin profile")
 }
 
 export async function updateAdminProfile(payload: {
   phone: string
   firstName: string
   lastName: string
-}) {
+}): Promise<GasResponse<void>> {
   if (!GAS_URL) throw new Error("GAS_URL is not configured")
 
   const response = await fetch(GAS_URL, {
@@ -204,12 +241,13 @@ export async function updateAdminProfile(payload: {
     }),
   })
 
-  return parseGasResponse(response, "Failed to update admin profile")
+  return parseGasResponse<void>(response, "Failed to update admin profile")
 }
 
-export async function submitPurchase(
-  payload: { productIds: string[], adminPhone: string }
-) {
+export async function submitPurchase(payload: {
+  productIds: string[]
+  adminPhone: string
+}): Promise<GasResponse<void>> {
   if (!GAS_URL) throw new Error("GAS_URL is not configured")
 
   const response = await fetch(GAS_URL, {
@@ -224,5 +262,5 @@ export async function submitPurchase(
     }),
   })
 
-  return parseGasResponse(response, "Purchase failed")
+  return parseGasResponse<void>(response, "Purchase failed")
 }

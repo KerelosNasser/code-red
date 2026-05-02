@@ -44,7 +44,7 @@ export default function DashboardPage() {
   const unassignedUsers = d.managedUsers.filter(
     (u) =>
       !u.teamId ||
-      !d.teams.find((t) => t.id === u.teamId)
+      !d.teams.find((t) => String(t.id) === String(u.teamId))
   )
 
   return (
@@ -134,7 +134,7 @@ export default function DashboardPage() {
                 <TeamCard
                   key={team.id}
                   team={team}
-                  users={d.managedUsers.filter((u) => u.teamId === team.id)}
+                  users={d.managedUsers.filter((u) => String(u.teamId) === String(team.id))}
                   onDeleteTeam={d.onDeleteTeam}
                   onDeleteUser={d.onDeleteUser}
                   onOpenAddUser={() => d.setIsAddUserOpen(true)}

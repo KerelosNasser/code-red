@@ -33,7 +33,7 @@ export default function AssetsPage() {
       try {
         const res = await getUserAssetsFromGas(access)
         if (res.success) {
-          setAssets(res.data)
+          setAssets(res.data || [])
         }
       } catch (error) {
         console.error("Failed to fetch assets:", error)

@@ -19,7 +19,7 @@ export default async function CoursesPage() {
   
   try {
     const res = await getCachedCourses()
-    if (res.success && res.data?.length > 0) {
+    if (res.success && res.data && res.data.length > 0) {
       courses = res.data
     } else {
       courses = MOCK_COURSES

@@ -454,16 +454,30 @@ const SheetUtils = {
     if (lastRow < 2 || lastColumn === 0) return [];
 
     const values = sheet.getRange(1, 1, lastRow, lastColumn).getValues();
-    const headers = values.shift().map(function(h) {
-      const str = String(h || "").trim();
-      if (!str) return "";
-      // Convert anything (spaces, underscores, hyphens) to camelCase
-      const words = str.split(/[\s_-]+/);
-      return words.map(function(word, index) {
-        if (!word) return "";
-        if (index === 0) return word.toLowerCase();
-        return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
-      }).join('');
+    const schemaKeys = SHEET_SCHEMAS[sheetName];
+
+    // If no schema is defined, fallback to raw first-row headers (shouldn't happen)
+    if (!schemaKeys) {
+       const headers = values.shift();
+       return values.filter(function(row) {
+         return row.some(function(value) { return value !== ""; });
+       }).map(function(row) {
+         const record = {};
+         headers.forEach(function(header, index) { record[header] = row[index]; });
+         return record;
+       });
+    }
+
+    // Flatten raw headers for robust matching (e.g., "First Name" -> "firstname")
+    const rawHeaders = values.shift().map(function(h) {
+      return String(h || "").toLowerCase().replace(/[\s_-]/g, '');
+    });
+
+    // Map schema keys to column indices
+    const headerMap = schemaKeys.map(function(key) {
+      const flatKey = key.toLowerCase();
+      const colIndex = rawHeaders.indexOf(flatKey);
+      return { key: key, index: colIndex };
     });
 
     const data = values
@@ -472,8 +486,10 @@ const SheetUtils = {
       })
       .map(function(row) {
         const record = {};
-        headers.forEach(function(header, index) {
-          record[header] = row[index];
+        headerMap.forEach(function(mapItem) {
+          if (mapItem.index !== -1) {
+            record[mapItem.key] = row[mapItem.index];
+          }
         });
         return record;
       });
