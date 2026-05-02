@@ -3,40 +3,45 @@ export const GAS_SECRET = process.env.NEXT_PUBLIC_GAS_SECRET_KEY || ""
 
 export interface User {
   id: string
-  first_name: string
-  last_name: string
+  firstName: string
+  lastName: string
   phone: string
-  role: 'admin' | 'servant' | 'member'
-  team_id: string
-  managed_by: string
-  created_at: string
-  // Support both snake_case and camelCase from GAS headers
-  firstName?: string
-  lastName?: string
-  teamId?: string
-  managedBy?: string
-  createdAt?: string
+  role: "admin" | "servant" | "member"
+  teamId: string
+  managedBy: string
+  createdAt: string
 }
 
 export interface Team {
   id: string
   name: string
-  admin_phone: string
-  created_at: string
-  adminPhone?: string
-  createdAt?: string
+  adminPhone: string
+  createdAt: string
 }
 
 export interface AdminProfile {
   phone: string
-  first_name: string
-  last_name: string
-  firstName?: string
-  lastName?: string
+  firstName: string
+  lastName: string
 }
 
 export interface AccessCheckPayload {
   phone: string
+}
+
+function toCamelCase(obj: any): any {
+  if (Array.isArray(obj)) {
+    return obj.map((v) => toCamelCase(v))
+  } else if (obj !== null && typeof obj === "object") {
+    return Object.keys(obj).reduce((result, key) => {
+      const camelKey = key.replace(/(_\w)/g, (m) => m[1].toUpperCase())
+      return {
+        ...result,
+        [camelKey]: toCamelCase(obj[key]),
+      }
+    }, {})
+  }
+  return obj
 }
 
 async function parseGasResponse(response: Response, fallbackMessage: string) {
@@ -51,6 +56,11 @@ async function parseGasResponse(response: Response, fallbackMessage: string) {
     const errorMessage = result.error || fallbackMessage
     console.error("GAS API Business Logic Error:", errorMessage)
     throw new Error(errorMessage)
+  }
+
+  // Normalize keys to camelCase if data exists
+  if (result.data) {
+    result.data = toCamelCase(result.data)
   }
 
   return result

@@ -33,8 +33,8 @@ export default function DashboardPage() {
 
   if (!d.access || d.access.role !== "admin") return null
 
-  const adminDisplayName = d.adminProfile?.first_name || d.adminProfile?.firstName
-    ? `${d.adminProfile.first_name || d.adminProfile.firstName} ${d.adminProfile.last_name || d.adminProfile.lastName || ""}`.trim()
+  const adminDisplayName = d.adminProfile?.firstName
+    ? `${d.adminProfile.firstName} ${d.adminProfile.lastName || ""}`.trim()
     : "Administrator"
 
   const servantCount = d.managedUsers.filter((u) => u.role === "servant").length
@@ -43,8 +43,8 @@ export default function DashboardPage() {
 
   const unassignedUsers = d.managedUsers.filter(
     (u) =>
-      !(u.team_id || u.teamId) ||
-      !d.teams.find((t) => t.id === (u.team_id || u.teamId))
+      !u.teamId ||
+      !d.teams.find((t) => t.id === u.teamId)
   )
 
   return (
@@ -134,7 +134,7 @@ export default function DashboardPage() {
                 <TeamCard
                   key={team.id}
                   team={team}
-                  users={d.managedUsers.filter((u) => (u.team_id || u.teamId) === team.id)}
+                  users={d.managedUsers.filter((u) => u.teamId === team.id)}
                   onDeleteTeam={d.onDeleteTeam}
                   onDeleteUser={d.onDeleteUser}
                   onOpenAddUser={() => d.setIsAddUserOpen(true)}

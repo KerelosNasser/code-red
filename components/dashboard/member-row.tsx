@@ -10,7 +10,7 @@ export function MemberRow({
   user: GasUser
   onDelete: (id: string) => void
 }) {
-  const fullName = `${user.first_name || ""} ${user.last_name || ""}`.trim() || "Unknown Member"
+  const fullName = `${user.firstName || ""} ${user.lastName || ""}`.trim() || "Unknown Member"
   const isServant = user.role === "servant"
   const phone = user.phone || ""
   const id = user.id || ""

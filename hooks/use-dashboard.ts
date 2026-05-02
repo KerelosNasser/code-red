@@ -74,11 +74,11 @@ export function useDashboard() {
       const result = await getAdminProfile(phone)
       if (result.data) {
         setAdminProfile(result.data)
-        setProfileFirstName(result.data.first_name || result.data.firstName || "")
-        setProfileLastName(result.data.last_name || result.data.lastName || "")
+        setProfileFirstName(result.data.firstName || "")
+        setProfileLastName(result.data.lastName || "")
         const stored = getStoredAccess()
-        const fetchedFirstName = result.data.first_name || result.data.firstName
-        const fetchedLastName = result.data.last_name || result.data.lastName
+        const fetchedFirstName = result.data.firstName
+        const fetchedLastName = result.data.lastName
         if (
           stored &&
           (stored.firstName !== fetchedFirstName ||
@@ -155,13 +155,8 @@ export function useDashboard() {
       const normalizedPhone = normalizePhoneNumber(values.phone)
       const adminPhone = normalizePhoneNumber(access.phone)
 
-      interface GasUserCompatible extends GasUser {
-        Phone?: string | number
-        phoneNumber?: string | number
-      }
-
-      const duplicateUser = managedUsers.find((u: GasUserCompatible) => {
-        const uPhone = u.phone || u.Phone || u.phoneNumber
+      const duplicateUser = managedUsers.find((u) => {
+        const uPhone = u.phone
         if (!uPhone) return false
         try {
           return normalizePhoneNumber(String(uPhone)) === normalizedPhone
@@ -171,20 +166,20 @@ export function useDashboard() {
       })
 
       if (duplicateUser) {
-        const dName = duplicateUser.first_name || duplicateUser.firstName || "Member"
+        const dName = duplicateUser.firstName || "Member"
         toast.error(`${dName} is already registered with this phone number.`)
         setIsAddingUser(false)
         return
       }
 
-      const payload = {
-        first_name: values.firstName,
-        last_name: values.lastName,
+      const payload: Partial<GasUser> = {
+        firstName: values.firstName,
+        lastName: values.lastName,
         phone: normalizedPhone,
         role: values.role,
-        team_id: values.teamId || "",
-        managed_by: adminPhone,
-        created_at: new Date().toISOString(),
+        teamId: values.teamId || "",
+        managedBy: adminPhone,
+        createdAt: new Date().toISOString(),
       }
 
       const result = await upsertUser(payload)
@@ -194,13 +189,13 @@ export function useDashboard() {
         
         const newUser: GasUser = {
           id: result.data?.userId || Math.random().toString(36).substr(2, 9),
-          first_name: values.firstName,
-          last_name: values.lastName,
+          firstName: values.firstName,
+          lastName: values.lastName,
           phone: normalizedPhone,
           role: values.role,
-          team_id: values.teamId || "",
-          managed_by: adminPhone,
-          created_at: new Date().toISOString(),
+          teamId: values.teamId || "",
+          managedBy: adminPhone,
+          createdAt: new Date().toISOString(),
         }
         setManagedUsers((prev) => [newUser, ...prev])
 
