@@ -137,8 +137,14 @@ function MemberRow({
   user: GasUser
   onDelete: (id: string) => void
 }) {
-  const fullName = `${user.first_name} ${user.last_name}`.trim()
-  const isServant = user.role === "servant"
+  // Extremely robust name resolution
+  const fName = user.first_name || user.firstName || (user as any).First_Name || (user as any).FirstName || ""
+  const lName = user.last_name || user.lastName || (user as any).Last_Name || (user as any).LastName || ""
+  const fullName = `${fName} ${lName}`.trim() || "Unknown Member"
+  
+  const isServant = user.role === "servant" || (user as any).Role === "servant"
+  const phone = user.phone || (user as any).Phone || ""
+  const id = user.id || (user as any).Id || ""
 
   return (
     <div className="group flex items-center justify-between rounded-xl px-3 py-2.5 transition-colors hover:bg-slate-50">
@@ -146,7 +152,7 @@ function MemberRow({
         <Avatar name={fullName} size="md" />
         <div>
           <p className="text-sm font-semibold text-slate-800">{fullName}</p>
-          <p className="text-xs text-slate-400">{user.phone}</p>
+          <p className="text-xs text-slate-400">{phone}</p>
         </div>
       </div>
       <div className="flex items-center gap-2">
@@ -156,7 +162,7 @@ function MemberRow({
           </span>
         )}
         <button
-          onClick={() => onDelete(user.id)}
+          onClick={() => onDelete(id)}
           className="invisible flex h-7 w-7 items-center justify-center rounded-lg text-slate-300 transition-colors group-hover:visible hover:bg-red-50 hover:text-red-500"
         >
           <Trash2 className="h-3.5 w-3.5" />
@@ -416,18 +422,20 @@ export default function DashboardPage() {
       const result = await getAdminProfile(phone)
       if (result.data) {
         setAdminProfile(result.data)
-        setProfileFirstName(result.data.first_name || "")
-        setProfileLastName(result.data.last_name || "")
+        setProfileFirstName(result.data.first_name || result.data.firstName || "")
+        setProfileLastName(result.data.last_name || result.data.lastName || "")
         const stored = getStoredAccess()
+        const fetchedFirstName = result.data.first_name || result.data.firstName
+        const fetchedLastName = result.data.last_name || result.data.lastName
         if (
           stored &&
-          (stored.firstName !== result.data.first_name ||
-            stored.lastName !== result.data.last_name)
+          (stored.firstName !== fetchedFirstName ||
+            stored.lastName !== fetchedLastName)
         ) {
           storeAccess({
             ...stored,
-            firstName: result.data.first_name,
-            lastName: result.data.last_name,
+            firstName: fetchedFirstName,
+            lastName: fetchedLastName,
           })
         }
       }
@@ -481,25 +489,61 @@ export default function DashboardPage() {
   }
 
   const onAddUser = async (values: UserUpsertValues) => {
-    if (!access?.phone) return
+    if (!access?.phone) {
+      toast.error("Admin session not found. Please log in again.")
+      return
+    }
+
     setIsAddingUser(true)
     try {
       const normalizedPhone = normalizePhoneNumber(values.phone)
-      await upsertUser({
+      const adminPhone = normalizePhoneNumber(access.phone)
+
+      // Robust duplication check
+      const duplicateUser = managedUsers.find(u => {
+        const uPhone = u.phone || (u as any).Phone || (u as any).phoneNumber
+        if (!uPhone) return false
+        try {
+          return normalizePhoneNumber(String(uPhone)) === normalizedPhone
+        } catch {
+          return false
+        }
+      })
+
+      if (duplicateUser) {
+        const dName = duplicateUser.first_name || duplicateUser.firstName || "Member"
+        toast.error(`${dName} is already registered with this phone number.`)
+        setIsAddingUser(false)
+        return
+      }
+
+      const payload = {
         first_name: values.firstName,
         last_name: values.lastName,
         phone: normalizedPhone,
         role: values.role,
-        team_id: values.teamId,
-        managed_by: normalizePhoneNumber(access.phone),
+        team_id: values.teamId || "",
+        managed_by: adminPhone,
         created_at: new Date().toISOString(),
-      })
-      toast.success(`${values.firstName} added successfully`)
-      userForm.reset()
-      setIsAddUserOpen(false)
-      void fetchUsers(access.phone)
-    } catch {
-      toast.error("Failed to add user")
+      }
+
+      const result = await upsertUser(payload)
+      
+      if (result.success) {
+        toast.success(`${values.firstName} added to organization`)
+        userForm.reset({
+          firstName: "",
+          lastName: "",
+          phone: "",
+          role: "member",
+          teamId: "",
+        })
+        setIsAddUserOpen(false)
+        await fetchUsers(access.phone)
+      }
+    } catch (err) {
+      console.error("Critical error in onAddUser:", err)
+      toast.error("Could not add person. Check your connection or the backend log.")
     } finally {
       setIsAddingUser(false)
     }
@@ -554,8 +598,8 @@ export default function DashboardPage() {
     )
   }
 
-  const adminDisplayName = adminProfile?.first_name
-    ? `${adminProfile.first_name} ${adminProfile.last_name || ""}`.trim()
+  const adminDisplayName = adminProfile?.first_name || adminProfile?.firstName
+    ? `${adminProfile.first_name || adminProfile.firstName} ${adminProfile.last_name || adminProfile.lastName || ""}`.trim()
     : "Administrator"
 
   const servantCount = managedUsers.filter((u) => u.role === "servant").length
@@ -784,7 +828,7 @@ export default function DashboardPage() {
             <div className="space-y-4">
               {teams.map((team) => {
                 const teamUsers = managedUsers.filter(
-                  (u) => u.team_id === team.id
+                  (u) => (u.team_id || u.teamId) === team.id
                 )
                 return (
                   <TeamCard
@@ -800,7 +844,9 @@ export default function DashboardPage() {
 
               {/* Unassigned Members */}
               {managedUsers.filter(
-                (u) => !u.team_id || !teams.find((t) => t.id === u.team_id)
+                (u) =>
+                  !(u.team_id || u.teamId) ||
+                  !teams.find((t) => t.id === (u.team_id || u.teamId))
               ).length > 0 && (
                 <div className="mt-8">
                   <h3 className="mb-3 text-xs font-bold tracking-widest text-slate-400 uppercase">
@@ -810,7 +856,8 @@ export default function DashboardPage() {
                     {managedUsers
                       .filter(
                         (u) =>
-                          !u.team_id || !teams.find((t) => t.id === u.team_id)
+                          !(u.team_id || u.teamId) ||
+                          !teams.find((t) => t.id === (u.team_id || u.teamId))
                       )
                       .map((u) => (
                         <MemberRow

@@ -309,15 +309,18 @@ const UserService = {
       return UserService.getComparisonPhone(u.phone) === inputComp;
     });
 
+    const existingUser = existingIndex !== -1 ? users[existingIndex] : null;
+    const userId = payload.id || (existingUser ? existingUser.id : Utilities.getUuid());
+
     const userData = [
-      payload.id || Utilities.getUuid(),
-      payload.first_name || payload.firstName || "",
-      payload.last_name || payload.lastName || "",
+      userId,
+      payload.first_name || payload.firstName || (existingUser ? (existingUser.first_name || existingUser.firstName) : ""),
+      payload.last_name || payload.lastName || (existingUser ? (existingUser.last_name || existingUser.lastName) : ""),
       inputPhone,
-      payload.role || "member",
-      payload.team_id || payload.teamId || "",
-      payload.managed_by || payload.managedBy || "",
-      payload.created_at || payload.createdAt || new Date().toISOString()
+      payload.role || (existingUser ? existingUser.role : "member"),
+      payload.team_id || payload.teamId || (existingUser ? (existingUser.team_id || existingUser.teamId) : ""),
+      payload.managed_by || payload.managedBy || (existingUser ? (existingUser.managed_by || existingUser.managedBy) : ""),
+      payload.created_at || payload.createdAt || (existingUser ? (existingUser.created_at || existingUser.createdAt) : new Date().toISOString())
     ];
 
     if (existingIndex !== -1) {
@@ -337,6 +340,22 @@ const UserService = {
     });
 
     return { success: true, data: managed };
+  },
+
+  remove: function(userId, adminPhone) {
+    const users = SheetUtils.readAll("Users");
+    const index = users.findIndex(function(u) { return u.id === userId; });
+    
+    if (index === -1) throw new Error("User not found");
+    
+    const user = users[index];
+    // Check if the admin is authorized to delete this user
+    if (UserService.getComparisonPhone(user.managed_by) !== UserService.getComparisonPhone(adminPhone)) {
+       throw new Error("Unauthorized to delete this user");
+    }
+
+    SheetUtils.deleteRow("Users", index + 2);
+    return { success: true };
   },
 
   getUserAssets: function(phone) {

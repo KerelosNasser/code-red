@@ -10,6 +10,12 @@ export interface User {
   team_id: string
   managed_by: string
   created_at: string
+  // Support both snake_case and camelCase from GAS headers
+  firstName?: string
+  lastName?: string
+  teamId?: string
+  managedBy?: string
+  createdAt?: string
 }
 
 export interface Team {
@@ -17,12 +23,16 @@ export interface Team {
   name: string
   admin_phone: string
   created_at: string
+  adminPhone?: string
+  createdAt?: string
 }
 
 export interface AdminProfile {
   phone: string
   first_name: string
   last_name: string
+  firstName?: string
+  lastName?: string
 }
 
 export interface AccessCheckPayload {
@@ -31,6 +41,7 @@ export interface AccessCheckPayload {
 
 async function parseGasResponse(response: Response, fallbackMessage: string) {
   if (!response.ok) {
+    console.error(`GAS API Error (${response.status}): ${response.statusText}`)
     throw new Error(`${fallbackMessage}: ${response.statusText}`)
   }
 
@@ -38,6 +49,7 @@ async function parseGasResponse(response: Response, fallbackMessage: string) {
 
   if (result.success === false) {
     const errorMessage = result.error || fallbackMessage
+    console.error("GAS API Business Logic Error:", errorMessage)
     throw new Error(errorMessage)
   }
 
