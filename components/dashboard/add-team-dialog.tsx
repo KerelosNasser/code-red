@@ -34,8 +34,9 @@ export function AddTeamDialog({
         </DialogHeader>
         <form onSubmit={onAddTeam} className="mt-4 space-y-4">
           <div className="space-y-2">
-            <Label>Team Name</Label>
+            <Label htmlFor="teamName">Team Name</Label>
             <Input
+              id="teamName"
               value={newTeamName}
               onChange={(e) => setNewTeamName(e.target.value)}
               placeholder="e.g. RoboKnights"

@@ -41,16 +41,18 @@ export function ProfileDialog({
         <form onSubmit={onUpdateProfile} className="mt-4 space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>First Name</Label>
+              <Label htmlFor="firstName">First Name</Label>
               <Input
+                id="firstName"
                 value={firstName}
                 onChange={(e) => setFirstName(e.target.value)}
                 placeholder="Admin"
               />
             </div>
             <div className="space-y-2">
-              <Label>Last Name</Label>
+              <Label htmlFor="lastName">Last Name</Label>
               <Input
+                id="lastName"
                 value={lastName}
                 onChange={(e) => setLastName(e.target.value)}
                 placeholder="Name"
@@ -58,8 +60,9 @@ export function ProfileDialog({
             </div>
           </div>
           <div className="space-y-2">
-            <Label>Phone (Reference)</Label>
+            <Label htmlFor="phone">Phone (Reference)</Label>
             <Input
+              id="phone"
               value={phone}
               disabled
               className="bg-slate-50"

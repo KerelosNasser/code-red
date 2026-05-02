@@ -41,31 +41,35 @@ export function AddUserDialog({
         >
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>First Name</Label>
+              <Label htmlFor="firstName">First Name</Label>
               <Input
+                id="firstName"
                 {...form.register("firstName")}
                 placeholder="John"
               />
             </div>
             <div className="space-y-2">
-              <Label>Last Name</Label>
+              <Label htmlFor="lastName">Last Name</Label>
               <Input
+                id="lastName"
                 {...form.register("lastName")}
                 placeholder="Doe"
               />
             </div>
           </div>
           <div className="space-y-2">
-            <Label>Phone Number</Label>
+            <Label htmlFor="phone">Phone Number</Label>
             <Input
+              id="phone"
               {...form.register("phone")}
               placeholder="01XXXXXXXXX"
             />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Team</Label>
+              <Label htmlFor="teamId">Team</Label>
               <select
+                id="teamId"
                 {...form.register("teamId")}
                 className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
               >
@@ -78,8 +82,9 @@ export function AddUserDialog({
               </select>
             </div>
             <div className="space-y-2">
-              <Label>Role</Label>
+              <Label htmlFor="role">Role</Label>
               <select
+                id="role"
                 {...form.register("role")}
                 className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
               >

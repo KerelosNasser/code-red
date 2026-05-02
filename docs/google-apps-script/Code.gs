@@ -445,7 +445,9 @@ const SheetUtils = {
     if (lastRow < 2 || lastColumn === 0) return [];
 
     const values = sheet.getRange(1, 1, lastRow, lastColumn).getValues();
-    const headers = values.shift();
+    const headers = values.shift().map(function(h) {
+      return String(h || "").toLowerCase().trim().replace(/\s+/g, '_');
+    });
 
     const data = values
       .filter(function(row) {

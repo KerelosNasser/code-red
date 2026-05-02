@@ -97,16 +97,20 @@ export function useDashboard() {
   }
 
   useEffect(() => {
-    const storedAccess = getStoredAccess()
-    if (!storedAccess || storedAccess.role !== "admin") {
+    const checkAccess = () => {
+      const storedAccess = getStoredAccess()
+      if (!storedAccess || storedAccess.role !== "admin") {
+        setIsCheckingAccess(false)
+        return
+      }
+      setAccess(storedAccess)
       setIsCheckingAccess(false)
-      return
+      void fetchUsers(storedAccess.phone)
+      void fetchTeams(storedAccess.phone)
+      void fetchAdminProfile(storedAccess.phone)
     }
-    setAccess(storedAccess)
-    setIsCheckingAccess(false)
-    void fetchUsers(storedAccess.phone)
-    void fetchTeams(storedAccess.phone)
-    void fetchAdminProfile(storedAccess.phone)
+
+    checkAccess()
   }, [])
 
   const userForm = useForm<UserUpsertValues>({
@@ -151,8 +155,13 @@ export function useDashboard() {
       const normalizedPhone = normalizePhoneNumber(values.phone)
       const adminPhone = normalizePhoneNumber(access.phone)
 
-      const duplicateUser = managedUsers.find(u => {
-        const uPhone = u.phone || (u as any).Phone || (u as any).phoneNumber
+      interface GasUserCompatible extends GasUser {
+        Phone?: string | number
+        phoneNumber?: string | number
+      }
+
+      const duplicateUser = managedUsers.find((u: GasUserCompatible) => {
+        const uPhone = u.phone || u.Phone || u.phoneNumber
         if (!uPhone) return false
         try {
           return normalizePhoneNumber(String(uPhone)) === normalizedPhone
