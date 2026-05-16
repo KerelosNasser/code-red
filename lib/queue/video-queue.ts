@@ -5,6 +5,7 @@ export interface VideoJobData {
   lessonId: string;
   inputPath: string; // The raw .mp4 uploaded to temp folder
   outputDir: string; // The destination directory for the .m3u8 and .ts files
+  actorPhone?: string;
 }
 
 export const videoQueue = new Queue<VideoJobData>("video-processing", {

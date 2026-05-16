@@ -7,13 +7,14 @@ import { VideoJobData } from "../lib/queue/video-queue";
 import { db } from "../lib/db";
 import { lessons } from "../lib/db/schema";
 import { eq } from "drizzle-orm";
+import { createAdminNotification } from "../lib/db/services";
 
 console.log("Starting FFmpeg Video Worker...");
 
 const worker = new Worker<VideoJobData>(
   "video-processing",
   async (job: Job<VideoJobData>) => {
-    const { lessonId, inputPath, outputDir } = job.data;
+    const { lessonId, inputPath, outputDir, actorPhone } = job.data;
     
     console.log(`[Job ${job.id}] Processing video for lesson: ${lessonId}`);
 
@@ -48,6 +49,12 @@ const worker = new Worker<VideoJobData>(
             await db.update(lessons)
               .set({ videoUrl: relativeUrl })
               .where(eq(lessons.id, lessonId));
+            await createAdminNotification({
+              adminPhone: "system",
+              type: "video_cleanup",
+              message: "Raw video file deleted after successful HLS conversion.",
+              metadata: { lessonId, inputPath, outputDir, actorPhone, videoUrl: relativeUrl },
+            });
               
             console.log(`[Job ${job.id}] Database updated successfully.`);
             resolve(true);
@@ -58,6 +65,12 @@ const worker = new Worker<VideoJobData>(
         })
         .on("error", (err) => {
           console.error(`[Job ${job.id}] FFmpeg Error:`, err);
+          void createAdminNotification({
+            adminPhone: "system",
+            type: "video_processing_failed",
+            message: "Video processing failed. Check worker logs before deleting temp files.",
+            metadata: { lessonId, inputPath, outputDir, actorPhone, error: err.message },
+          });
           reject(err);
         })
         .on("progress", (progress) => {

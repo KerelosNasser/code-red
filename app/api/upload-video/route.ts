@@ -2,16 +2,17 @@ import { NextResponse } from "next/server";
 import { writeFile, mkdir } from "fs/promises";
 import { join } from "path";
 import { videoQueue } from "@/lib/queue/video-queue";
-import { checkUserAccessAction } from "@/lib/actions";
+import { checkUserAccessAction, createAdminNotificationAction } from "@/lib/actions";
+import { assertSufficientStorage, StorageGuardError } from "@/lib/storage-guard";
 
 export async function POST(req: Request) {
   try {
     const formData = await req.formData();
     const file = formData.get("videoFile") as File;
     const lessonId = formData.get("lessonId") as string;
-    const adminPhone = formData.get("adminPhone") as string;
+    const actorPhone = (formData.get("actorPhone") || formData.get("adminPhone")) as string;
 
-    if (!file || !lessonId || !adminPhone) {
+    if (!file || !lessonId || !actorPhone) {
       return NextResponse.json(
         { error: "Missing required fields" },
         { status: 400 }
@@ -19,13 +20,16 @@ export async function POST(req: Request) {
     }
 
     // Security Check: Verify admin status
-    const accessCheck = await checkUserAccessAction({ phone: adminPhone });
-    if (!accessCheck.data?.hasAccess || accessCheck.data?.role !== "admin") {
+    const accessCheck = await checkUserAccessAction({ phone: actorPhone });
+    const role = accessCheck.data?.role;
+    if (!accessCheck.data?.hasAccess || (role !== "admin" && role !== "tutor")) {
       return NextResponse.json(
         { error: "Unauthorized: Admin access required" },
         { status: 403 }
       );
     }
+
+    await assertSufficientStorage(file.size);
 
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
@@ -48,6 +52,7 @@ export async function POST(req: Request) {
       lessonId,
       inputPath,
       outputDir,
+      actorPhone,
     });
 
     return NextResponse.json({ 
@@ -56,6 +61,14 @@ export async function POST(req: Request) {
     });
   } catch (error: unknown) {
     console.error("Upload Error:", error);
+    if (error instanceof StorageGuardError) {
+      await createAdminNotificationAction({
+        type: "storage_low",
+        message: error.message,
+        metadata: { source: "video-upload" },
+      });
+      return NextResponse.json({ error: error.message }, { status: 507 });
+    }
     return NextResponse.json(
       { error: "Internal Server Error" },
       { status: 500 }

@@ -50,6 +50,11 @@ export const courses = pgTable("courses", {
   description: text("description"),
   level: varchar("level", { length: 50 }),
   thumbnail: text("thumbnail"),
+  status: varchar("status", { length: 50 }).notNull().default("draft"),
+  ownerPhone: varchar("owner_phone", { length: 50 }).notNull().default("system"),
+  ownerRole: varchar("owner_role", { length: 50 }).notNull().default("admin"),
+  publishedAt: timestamp("published_at"),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -68,4 +73,14 @@ export const lessons = pgTable("lessons", {
   videoUrl: text("video_url"), // Path to the HLS .m3u8 file
   resourceUrl: text("resource_url"), // Path to attached PDF/ZIP
   position: integer("position").notNull().default(0), // For ordering
+});
+
+export const adminNotifications = pgTable("admin_notifications", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  adminPhone: varchar("admin_phone", { length: 50 }).notNull().default("system"),
+  type: varchar("type", { length: 80 }).notNull(),
+  message: text("message").notNull(),
+  metadata: jsonb("metadata"),
+  readAt: timestamp("read_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
 });

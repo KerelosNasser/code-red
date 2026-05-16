@@ -1,68 +1,111 @@
 "use client"
 
-import React, { useState } from "react"
-import { useForm, useFieldArray, UseFormReturn } from "react-hook-form"
+import React, { useEffect, useMemo, useState } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
+import { useFieldArray, useForm, type UseFormReturn } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
-import { motion, AnimatePresence } from "framer-motion"
-import { 
-  Plus, 
-  Trash2, 
-  GripVertical, 
-  Video, 
-  FileText, 
-  BookOpen, 
-  Layers, 
-  Settings, 
-  Save, 
-  ChevronRight,
+import {
+  BookOpen,
+  CheckCircle2,
+  FileText,
+  Loader2,
+  Plus,
+  Save,
+  Trash2,
   UploadCloud,
-  X
+  Video,
 } from "lucide-react"
+import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { toast } from "sonner"
+import {
+  getCourseForEditAction,
+  publishCourseAction,
+  saveCourseDraftAction,
+  type CourseActor,
+} from "@/lib/actions"
+import { getStoredAccess } from "@/lib/access-storage"
 import { cn } from "@/lib/utils"
 
 const lessonSchema = z.object({
+  id: z.string().optional(),
   title: z.string().min(1, "Lesson title is required"),
   description: z.string().optional(),
-  videoFile: z.any().optional(),
-  resourceFile: z.any().optional(),
+  videoUrl: z.string().nullable().optional(),
+  resourceUrl: z.string().nullable().optional(),
 })
 
 const sectionSchema = z.object({
+  id: z.string().optional(),
   title: z.string().min(1, "Section title is required"),
-  lessons: z.array(lessonSchema).min(1, "At least one lesson is required per section"),
+  lessons: z.array(lessonSchema).min(1, "Add at least one lesson"),
 })
 
 const courseSchema = z.object({
+  id: z.string().optional(),
   title: z.string().min(1, "Course title is required"),
   description: z.string().min(1, "Description is required"),
   level: z.string().min(1, "Level is required"),
-  thumbnail: z.any().optional(),
-  sections: z.array(sectionSchema).min(1, "At least one section is required"),
+  thumbnail: z.string().nullable().optional(),
+  sections: z.array(sectionSchema).min(1, "Add at least one section"),
 })
 
 type CourseFormValues = z.infer<typeof courseSchema>
+type FileMap = Record<string, File | undefined>
+
+function emptyCourse(): CourseFormValues {
+  return {
+    title: "",
+    description: "",
+    level: "Intermediate",
+    thumbnail: null,
+    sections: [{ title: "", lessons: [{ title: "", description: "" }] }],
+  }
+}
+
+function actorFromStorage(): CourseActor | null {
+  const access = getStoredAccess()
+  if (!access || (access.role !== "admin" && access.role !== "tutor")) return null
+  return { phone: access.phone, role: access.role }
+}
+
+function toFormValues(course: any): CourseFormValues {
+  return {
+    id: course.id,
+    title: course.title || "",
+    description: course.description || "",
+    level: course.level || "Intermediate",
+    thumbnail: course.thumbnail || null,
+    sections: (course.sections || []).map((section: any) => ({
+      id: section.id,
+      title: section.title || "",
+      lessons: (section.lessons || []).map((lesson: any) => ({
+        id: lesson.id,
+        title: lesson.title || "",
+        description: lesson.description || "",
+        videoUrl: lesson.videoUrl || lesson.url || null,
+        resourceUrl: lesson.resourceUrl || lesson.resource_url || null,
+      })),
+    })),
+  }
+}
 
 export default function CourseBuilder() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const courseId = searchParams.get("id")
+  const [actor, setActor] = useState<CourseActor | null>(null)
+  const [isLoading, setIsLoading] = useState(Boolean(courseId))
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [thumbnailFile, setThumbnailFile] = useState<File | undefined>()
+  const [videoFiles, setVideoFiles] = useState<FileMap>({})
+  const [resourceFiles, setResourceFiles] = useState<FileMap>({})
 
   const form = useForm<CourseFormValues>({
     resolver: zodResolver(courseSchema),
-    defaultValues: {
-      title: "",
-      description: "",
-      level: "Intermediate",
-      sections: [
-        {
-          title: "",
-          lessons: [{ title: "", description: "" }],
-        },
-      ],
-    },
+    defaultValues: emptyCourse(),
   })
 
   const { fields: sectionFields, append: appendSection, remove: removeSection } = useFieldArray({
@@ -70,364 +113,361 @@ export default function CourseBuilder() {
     name: "sections",
   })
 
-  const onSubmit = async (data: CourseFormValues) => {
+  useEffect(() => {
+    const nextActor = actorFromStorage()
+    if (!nextActor) {
+      router.push("/register")
+      return
+    }
+    setActor(nextActor)
+
+    if (!courseId) {
+      setIsLoading(false)
+      return
+    }
+
+    const load = async () => {
+      const result = await getCourseForEditAction(courseId, nextActor)
+      if (!result.success || !result.data) {
+        toast.error(result.error || "Course not found")
+        router.push("/dashboard/courses")
+        return
+      }
+      form.reset(toFormValues(result.data))
+      setIsLoading(false)
+    }
+
+    void load()
+  }, [courseId, form, router])
+
+  const lessonCount = useMemo(
+    () => form.watch("sections").reduce((sum, section) => sum + section.lessons.length, 0),
+    [form]
+  )
+
+  async function uploadMedia(params: {
+    file: File
+    kind: "thumbnail" | "resource"
+    courseId: string
+    lessonId?: string
+  }) {
+    if (!actor) return
+    const body = new FormData()
+    body.set("file", params.file)
+    body.set("kind", params.kind)
+    body.set("courseId", params.courseId)
+    body.set("actorPhone", actor.phone)
+    if (params.lessonId) body.set("lessonId", params.lessonId)
+
+    const response = await fetch("/api/upload-media", { method: "POST", body })
+    const json = await response.json()
+    if (!response.ok) throw new Error(json.error || "Media upload failed")
+    return json.url as string
+  }
+
+  async function uploadVideo(file: File, lessonId: string) {
+    if (!actor) return
+    const body = new FormData()
+    body.set("videoFile", file)
+    body.set("lessonId", lessonId)
+    body.set("actorPhone", actor.phone)
+
+    const response = await fetch("/api/upload-video", { method: "POST", body })
+    const json = await response.json()
+    if (!response.ok) throw new Error(json.error || "Video upload failed")
+  }
+
+  async function saveCourse(publish: boolean) {
+    if (!actor) return
+    const valid = await form.trigger()
+    if (!valid) return
+
     setIsSubmitting(true)
     try {
-      console.log("Submitting course data:", data)
-      await new Promise(resolve => setTimeout(resolve, 2000)) // Simulating upload
-      toast.success("Course saved successfully! Videos are processing.")
-    } catch {
-      toast.error("Failed to save course.")
+      const values = form.getValues()
+      const saved = await saveCourseDraftAction(values, actor)
+      if (!saved.success || !saved.data) {
+        throw new Error(saved.error || "Could not save course")
+      }
+
+      const savedCourse = saved.data as any
+      if (thumbnailFile) {
+        await uploadMedia({ file: thumbnailFile, kind: "thumbnail", courseId: savedCourse.id })
+      }
+
+      for (const [sectionIndex, section] of savedCourse.sections.entries()) {
+        for (const [lessonIndex, lesson] of section.lessons.entries()) {
+          const key = `${sectionIndex}-${lessonIndex}`
+          const resourceFile = resourceFiles[key]
+          const videoFile = videoFiles[key]
+          if (resourceFile) {
+            await uploadMedia({
+              file: resourceFile,
+              kind: "resource",
+              courseId: savedCourse.id,
+              lessonId: lesson.id,
+            })
+          }
+          if (videoFile) {
+            await uploadVideo(videoFile, lesson.id)
+          }
+        }
+      }
+
+      if (publish) {
+        const published = await publishCourseAction(savedCourse.id, actor)
+        if (!published.success) throw new Error(published.error || "Could not publish course")
+      }
+
+      toast.success(publish ? "Course published" : "Draft saved")
+      router.push("/dashboard/courses")
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Course save failed")
     } finally {
       setIsSubmitting(false)
     }
   }
 
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center rounded-lg border bg-white p-12">
+        <Loader2 className="h-6 w-6 animate-spin text-blue-900" />
+      </div>
+    )
+  }
+
   return (
-    <div className="mx-auto max-w-5xl space-y-12 pb-32 font-sans">
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-12">
-        
-        {/* Course Core Configuration */}
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-xl shadow-blue-900/5"
-        >
-          <div className="flex items-center gap-3 bg-blue-950 px-8 py-5 text-white">
-            <Settings className="h-5 w-5 text-amber-500" />
-            <h3 className="font-serif text-xl font-bold tracking-tight">Core Course Configuration</h3>
-          </div>
-          
-          <div className="p-8">
-            <div className="grid gap-8 md:grid-cols-2">
-              <div className="space-y-3 md:col-span-2">
-                <Label htmlFor="title" className="text-sm font-bold text-slate-700 uppercase tracking-wider">
-                  Professional Title
-                </Label>
-                <Input 
-                  id="title" 
-                  {...form.register("title")} 
-                  placeholder="e.g. Masterclass: Industrial Robotics & Automation" 
-                  className="h-14 rounded-xl border-slate-200 bg-slate-50/50 text-lg transition-all focus:border-blue-900 focus:ring-4 focus:ring-blue-900/5"
-                />
-                {form.formState.errors.title && (
-                  <p className="text-xs font-semibold text-red-600 italic">
-                    {form.formState.errors.title.message}
-                  </p>
-                )}
-              </div>
+    <div className="space-y-6 pb-24">
+      <div className="flex flex-col gap-3 rounded-lg border bg-white p-5 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h3 className="text-lg font-bold text-slate-900">
+            {courseId ? "Edit course" : "New course"}
+          </h3>
+          <p className="text-sm text-slate-500">
+            {sectionFields.length} sections, {lessonCount} lessons
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => saveCourse(false)} disabled={isSubmitting}>
+            {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            Save draft
+          </Button>
+          <Button onClick={() => saveCourse(true)} disabled={isSubmitting}>
+            <CheckCircle2 className="h-4 w-4" />
+            Publish
+          </Button>
+        </div>
+      </div>
 
-              <div className="space-y-3 md:col-span-2">
-                <Label htmlFor="description" className="text-sm font-bold text-slate-700 uppercase tracking-wider">
-                  Curriculum Overview
-                </Label>
-                <textarea 
-                  id="description"
-                  {...form.register("description")}
-                  className="flex min-h-[120px] w-full rounded-2xl border border-slate-200 bg-slate-50/50 px-4 py-3 text-sm transition-all focus:border-blue-900 focus:ring-4 focus:ring-blue-900/5 outline-none"
-                  placeholder="Describe the learning outcomes and technical requirements..."
-                />
-                {form.formState.errors.description && (
-                  <p className="text-xs font-semibold text-red-600 italic">
-                    {form.formState.errors.description.message}
-                  </p>
-                )}
-              </div>
-
-              <div className="space-y-3">
-                <Label htmlFor="level" className="text-sm font-bold text-slate-700 uppercase tracking-wider">
-                  Target Proficiency
-                </Label>
-                <select 
-                  id="level" 
-                  {...form.register("level")}
-                  className="flex h-12 w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 text-sm font-medium transition-all focus:border-blue-900 focus:ring-4 focus:ring-blue-900/5 outline-none"
-                >
-                  <option value="Beginner">Beginner - Foundations</option>
-                  <option value="Intermediate">Intermediate - Specialized</option>
-                  <option value="Advanced">Advanced - Expert Implementation</option>
-                  <option value="Expert">Expert - Research & Design</option>
-                </select>
-              </div>
-
-              <div className="space-y-3">
-                <Label htmlFor="thumbnail" className="text-sm font-bold text-slate-700 uppercase tracking-wider">
-                  Visual Branding (Thumbnail)
-                </Label>
-                <div className="relative h-12">
-                   <Input 
-                    id="thumbnail" 
-                    type="file" 
-                    accept="image/*" 
-                    className="absolute inset-0 h-full w-full opacity-0 cursor-pointer z-10"
-                  />
-                  <div className="flex h-full items-center justify-between rounded-xl border border-dashed border-slate-300 bg-slate-50/50 px-4 text-sm text-slate-500">
-                    <span className="flex items-center gap-2 italic">
-                      <UploadCloud className="h-4 w-4" /> Click to upload image
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </motion.div>
-
-        {/* Curriculum Section */}
-        <div className="space-y-6">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-slate-200 pb-4">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-100 text-amber-700">
-                <Layers className="h-6 w-6" />
-              </div>
-              <div>
-                <h3 className="font-serif text-2xl font-bold text-slate-900">Curriculum Structure</h3>
-                <p className="text-sm text-slate-500">Design modules and interactive lessons</p>
-              </div>
-            </div>
-            <Button 
-              type="button" 
-              onClick={() => appendSection({ title: "", lessons: [{ title: "", description: "" }] })} 
-              className="rounded-xl bg-amber-700 font-bold text-white hover:bg-amber-800"
+      <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
+        <aside className="h-fit rounded-lg border bg-white p-4">
+          <div className="mb-3 flex items-center justify-between">
+            <h4 className="text-sm font-bold uppercase tracking-wide text-slate-500">Curriculum</h4>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => appendSection({ title: "", lessons: [{ title: "", description: "" }] })}
             >
-              <Plus className="mr-2 h-4 w-4" /> Add New Module
+              <Plus className="h-4 w-4" />
+              Section
             </Button>
           </div>
-
-          <div className="space-y-8">
-            <AnimatePresence>
-              {sectionFields.map((section, sectionIndex) => (
-                <motion.div 
-                  key={section.id}
-                  initial={{ opacity: 0, scale: 0.98 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.95 }}
-                  className="relative overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-lg"
-                >
-                  {/* Section Header */}
-                  <div className="flex items-center justify-between bg-slate-50/80 px-6 py-4 border-b border-slate-100">
-                    <div className="flex flex-1 items-center gap-4">
-                      <GripVertical className="h-5 w-5 cursor-move text-slate-300" />
-                      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-900 text-xs font-bold text-white">
-                        {sectionIndex + 1}
-                      </div>
-                      <div className="flex-1">
-                        <Input 
-                          {...form.register(`sections.${sectionIndex}.title`)} 
-                          placeholder="Module Title (e.g. Kinematics & Motion Planning)" 
-                          className="h-11 border-none bg-transparent font-serif text-lg font-bold text-slate-900 placeholder:text-slate-300 focus-visible:ring-0"
-                        />
-                      </div>
-                    </div>
-                    <Button 
-                      type="button" 
-                      variant="ghost" 
-                      size="icon" 
-                      onClick={() => removeSection(sectionIndex)} 
-                      className="text-slate-300 hover:bg-red-50 hover:text-red-600 transition-colors"
-                    >
-                      <Trash2 className="h-5 w-5" />
-                    </Button>
-                  </div>
-
-                  {form.formState.errors.sections?.[sectionIndex]?.title && (
-                    <div className="bg-red-50 px-10 py-2 border-b border-red-100">
-                      <p className="text-xs font-bold text-red-600 italic">
-                        {form.formState.errors.sections[sectionIndex]?.title?.message}
-                      </p>
-                    </div>
-                  )}
-
-                  {/* Lessons Builder Component */}
-                  <div className="p-6">
-                    <LessonBuilder form={form} sectionIndex={sectionIndex} />
-                  </div>
-                </motion.div>
-              ))}
-            </AnimatePresence>
-
-            {sectionFields.length === 0 && (
-              <div className="flex flex-col items-center justify-center rounded-3xl border-2 border-dashed border-slate-200 bg-slate-50 py-16 text-center">
-                <BookOpen className="mb-4 h-12 w-12 text-slate-300" />
-                <h4 className="text-lg font-bold text-slate-900">No Content Added</h4>
-                <p className="mt-1 text-sm text-slate-500">Start building your course by adding your first module.</p>
-                <Button 
-                  type="button" 
-                  onClick={() => appendSection({ title: "", lessons: [{ title: "", description: "" }] })} 
-                  className="mt-6 rounded-xl border border-amber-700 text-amber-700 hover:bg-amber-50"
-                  variant="outline"
-                >
-                  <Plus className="mr-2 h-4 w-4" /> Create First Module
-                </Button>
+          <div className="space-y-2">
+            {sectionFields.map((section, index) => (
+              <div key={section.id} className="rounded-md border border-slate-200 p-3">
+                <div className="flex items-center gap-2 text-sm font-semibold text-slate-800">
+                  <BookOpen className="h-4 w-4 text-blue-900" />
+                  Section {index + 1}
+                </div>
+                <p className="mt-1 truncate text-xs text-slate-500">
+                  {form.watch(`sections.${index}.title`) || "Untitled section"}
+                </p>
               </div>
-            )}
+            ))}
           </div>
-        </div>
+        </aside>
 
-        {/* Action Bar */}
-        <div className="fixed bottom-0 left-0 right-0 z-50 flex items-center justify-center border-t border-slate-200 bg-white/90 p-6 backdrop-blur-xl md:left-64">
-          <div className="flex w-full max-w-5xl items-center justify-between">
-            <div className="flex items-center gap-2 text-sm font-medium text-slate-500">
-              <span className="flex h-2 w-2 rounded-full bg-amber-500" /> 
-              Drafting in Progress
-            </div>
-            
-            <div className="flex items-center gap-4">
-              <Button type="button" variant="ghost" className="font-bold text-slate-400 hover:text-slate-900">
-                Discard Changes
-              </Button>
-              <Button 
-                type="submit" 
-                disabled={isSubmitting} 
-                className="h-12 min-w-[180px] rounded-xl bg-blue-950 font-black text-white shadow-lg shadow-blue-900/20 hover:bg-blue-900 hover:shadow-xl active:scale-95 transition-all"
-              >
-                {isSubmitting ? (
-                  <span className="flex items-center gap-2">
-                    <RefreshCw className="h-4 w-4 animate-spin" /> Finalizing...
-                  </span>
-                ) : (
-                  <span className="flex items-center gap-2">
-                    <Save className="h-4 w-4" /> Publish Masterclass
-                  </span>
+        <form className="space-y-6" onSubmit={(event) => event.preventDefault()}>
+          <section className="rounded-lg border bg-white p-5">
+            <div className="grid gap-5 md:grid-cols-2">
+              <div className="space-y-2 md:col-span-2">
+                <Label htmlFor="title">Title</Label>
+                <Input id="title" {...form.register("title")} placeholder="Robotics foundations" />
+                <FieldError message={form.formState.errors.title?.message} />
+              </div>
+              <div className="space-y-2 md:col-span-2">
+                <Label htmlFor="description">Description</Label>
+                <textarea
+                  id="description"
+                  {...form.register("description")}
+                  className="min-h-28 w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+                  placeholder="What students will learn"
+                />
+                <FieldError message={form.formState.errors.description?.message} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="level">Level</Label>
+                <select
+                  id="level"
+                  {...form.register("level")}
+                  className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+                >
+                  <option value="Beginner">Beginner</option>
+                  <option value="Intermediate">Intermediate</option>
+                  <option value="Advanced">Advanced</option>
+                  <option value="Expert">Expert</option>
+                </select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="thumbnail">Thumbnail</Label>
+                <Input
+                  id="thumbnail"
+                  type="file"
+                  accept="image/*"
+                  onChange={(event) => setThumbnailFile(event.target.files?.[0])}
+                />
+                {form.watch("thumbnail") && (
+                  <p className="text-xs text-slate-500">Current: {form.watch("thumbnail")}</p>
                 )}
-              </Button>
+              </div>
             </div>
+          </section>
+
+          <div className="space-y-4">
+            {sectionFields.map((section, sectionIndex) => (
+              <section key={section.id} className="rounded-lg border bg-white">
+                <div className="flex items-center gap-3 border-b p-4">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-md bg-blue-50 text-sm font-bold text-blue-900">
+                    {sectionIndex + 1}
+                  </div>
+                  <Input
+                    {...form.register(`sections.${sectionIndex}.title`)}
+                    placeholder="Section title"
+                    className="border-0 px-0 text-base font-semibold shadow-none focus-visible:ring-0"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    className="text-red-600"
+                    onClick={() => removeSection(sectionIndex)}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+                <div className="p-4">
+                  <LessonBuilder
+                    form={form}
+                    sectionIndex={sectionIndex}
+                    setVideoFiles={setVideoFiles}
+                    setResourceFiles={setResourceFiles}
+                  />
+                </div>
+              </section>
+            ))}
           </div>
-        </div>
-      </form>
+        </form>
+      </div>
     </div>
   )
 }
 
-function LessonBuilder({ form, sectionIndex }: { form: UseFormReturn<CourseFormValues>, sectionIndex: number }) {
-  const { fields: lessonFields, append: appendLesson, remove: removeLesson } = useFieldArray({
+function FieldError({ message }: { message?: string }) {
+  if (!message) return null
+  return <p className="text-xs font-medium text-red-600">{message}</p>
+}
+
+function LessonBuilder({
+  form,
+  sectionIndex,
+  setVideoFiles,
+  setResourceFiles,
+}: {
+  form: UseFormReturn<CourseFormValues>
+  sectionIndex: number
+  setVideoFiles: React.Dispatch<React.SetStateAction<FileMap>>
+  setResourceFiles: React.Dispatch<React.SetStateAction<FileMap>>
+}) {
+  const { fields, append, remove } = useFieldArray({
     control: form.control,
     name: `sections.${sectionIndex}.lessons`,
   })
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-2 text-xs font-black tracking-widest text-slate-400 uppercase mb-2">
-        <div className="h-[1px] flex-1 bg-slate-100" />
-        Lessons
-        <div className="h-[1px] flex-1 bg-slate-100" />
-      </div>
-
-      <AnimatePresence mode="popLayout">
-        {lessonFields.map((lesson, lessonIndex) => (
-          <motion.div 
-            key={lesson.id}
-            initial={{ opacity: 0, x: -10 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: 10 }}
-            className="group/lesson rounded-2xl border border-slate-100 bg-slate-50/50 p-5 transition-all hover:border-amber-200 hover:bg-white hover:shadow-md"
-          >
-            <div className="flex flex-col gap-6 md:flex-row">
-              {/* Lesson Number/Type Icon */}
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white border border-slate-100 text-slate-400 group-hover/lesson:border-amber-100 group-hover/lesson:text-amber-600">
-                <span className="text-xs font-black">{lessonIndex + 1}</span>
-              </div>
-
-              <div className="flex-1 space-y-5">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1 space-y-1">
-                    <Input 
-                      {...form.register(`sections.${sectionIndex}.lessons.${lessonIndex}.title`)} 
-                      placeholder="Lesson Name (e.g. Geometric Jacobian)" 
-                      className="h-9 border-none bg-transparent p-0 text-lg font-bold text-slate-800 placeholder:text-slate-300 focus-visible:ring-0"
-                    />
-                    <Input 
-                      {...form.register(`sections.${sectionIndex}.lessons.${lessonIndex}.description`)} 
-                      placeholder="Key takeaway for students..." 
-                      className="h-6 border-none bg-transparent p-0 text-sm text-slate-500 italic placeholder:text-slate-200 focus-visible:ring-0"
-                    />
-                  </div>
-                  <Button 
-                    type="button" 
-                    variant="ghost" 
-                    size="icon" 
-                    onClick={() => removeLesson(lessonIndex)} 
-                    className="h-8 w-8 text-slate-300 opacity-0 transition-opacity hover:bg-red-50 hover:text-red-500 group-hover/lesson:opacity-100"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-
-                {/* Media Upload Buttons */}
+    <div className="space-y-3">
+      {fields.map((lesson, lessonIndex) => {
+        const key = `${sectionIndex}-${lessonIndex}`
+        const videoUrl = form.watch(`sections.${sectionIndex}.lessons.${lessonIndex}.videoUrl`)
+        const resourceUrl = form.watch(`sections.${sectionIndex}.lessons.${lessonIndex}.resourceUrl`)
+        return (
+          <div key={lesson.id} className="rounded-md border border-slate-200 p-4">
+            <div className="grid gap-4 md:grid-cols-[1fr_auto]">
+              <div className="space-y-3">
+                <Input
+                  {...form.register(`sections.${sectionIndex}.lessons.${lessonIndex}.title`)}
+                  placeholder="Lesson title"
+                  className="font-semibold"
+                />
+                <Input
+                  {...form.register(`sections.${sectionIndex}.lessons.${lessonIndex}.description`)}
+                  placeholder="Short lesson summary"
+                />
                 <div className="flex flex-wrap gap-3">
-                  <div className="relative group/btn">
-                    <Input 
-                      type="file" 
-                      accept="video/*" 
-                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" 
+                  <label className={cn("inline-flex h-9 cursor-pointer items-center gap-2 rounded-md border px-3 text-sm", videoUrl && "border-blue-200 bg-blue-50 text-blue-900")}>
+                    <Video className="h-4 w-4" />
+                    Video
+                    <input
+                      type="file"
+                      accept="video/*"
+                      className="hidden"
+                      onChange={(event) =>
+                        setVideoFiles((prev) => ({ ...prev, [key]: event.target.files?.[0] }))
+                      }
                     />
-                    <Button 
-                      type="button" 
-                      variant="outline" 
-                      size="sm" 
-                      className="h-9 rounded-lg border-slate-200 bg-white px-4 font-bold text-slate-600 transition-all group-hover/btn:border-blue-900 group-hover/btn:text-blue-900"
-                    >
-                      <Video className="mr-2 h-4 w-4" /> Video File
-                    </Button>
-                  </div>
-
-                  <div className="relative group/btn">
-                    <Input 
-                      type="file" 
-                      accept=".pdf,.zip,.rar" 
-                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" 
+                  </label>
+                  <label className={cn("inline-flex h-9 cursor-pointer items-center gap-2 rounded-md border px-3 text-sm", resourceUrl && "border-amber-200 bg-amber-50 text-amber-800")}>
+                    <FileText className="h-4 w-4" />
+                    Resource
+                    <input
+                      type="file"
+                      accept=".pdf,.zip,.rar"
+                      className="hidden"
+                      onChange={(event) =>
+                        setResourceFiles((prev) => ({ ...prev, [key]: event.target.files?.[0] }))
+                      }
                     />
-                    <Button 
-                      type="button" 
-                      variant="outline" 
-                      size="sm" 
-                      className="h-9 rounded-lg border-slate-200 bg-white px-4 font-bold text-slate-600 transition-all group-hover/btn:border-amber-600 group-hover/btn:text-amber-600"
-                    >
-                      <FileText className="mr-2 h-4 w-4" /> Resources
-                    </Button>
-                  </div>
+                  </label>
+                  {(videoUrl || resourceUrl) && (
+                    <span className="inline-flex h-9 items-center gap-2 text-xs text-slate-500">
+                      <UploadCloud className="h-4 w-4" />
+                      Existing media attached
+                    </span>
+                  )}
                 </div>
               </div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                className="text-red-600"
+                onClick={() => remove(lessonIndex)}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
             </div>
-          </motion.div>
-        ))}
-      </AnimatePresence>
-      
-      <div className="pt-2">
-        <Button 
-          type="button" 
-          onClick={() => appendLesson({ title: "", description: "" })} 
-          variant="ghost" 
-          className="group flex items-center gap-2 font-bold text-slate-400 hover:text-amber-700"
-        >
-          <div className="flex h-6 w-6 items-center justify-center rounded-full border border-slate-200 group-hover:border-amber-700">
-            <Plus className="h-3 w-3" />
           </div>
-          Add New Lesson
-          <ChevronRight className="h-4 w-4 opacity-0 transition-all group-hover:translate-x-1 group-hover:opacity-100" />
-        </Button>
-      </div>
+        )
+      })}
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        onClick={() => append({ title: "", description: "" })}
+      >
+        <Plus className="h-4 w-4" />
+        Add lesson
+      </Button>
     </div>
-  )
-}
-
-function RefreshCw({ className }: { className?: string }) {
-  return (
-    <svg 
-      xmlns="http://www.w3.org/2000/svg" 
-      width="24" 
-      height="24" 
-      viewBox="0 0 24 24" 
-      fill="none" 
-      stroke="currentColor" 
-      strokeWidth="2" 
-      strokeLinecap="round" 
-      strokeLinejoin="round" 
-      className={className}
-    >
-      <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
-      <path d="M21 3v5h-5" />
-      <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
-      <path d="M3 21v-5h5" />
-    </svg>
   )
 }

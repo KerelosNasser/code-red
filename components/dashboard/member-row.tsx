@@ -12,6 +12,7 @@ export function MemberRow({
 }) {
   const fullName = `${user.firstName || ""} ${user.lastName || ""}`.trim() || "Unknown Member"
   const isServant = user.role === "servant"
+  const isTutor = user.role === "tutor"
   const phone = user.phone || ""
   const id = user.id || ""
 
@@ -28,6 +29,11 @@ export function MemberRow({
         {isServant && (
           <span className="rounded-full bg-yellow-600 px-2 py-0.5 text-[10px] font-bold tracking-wider text-yellow-50/90 uppercase">
             Servant
+          </span>
+        )}
+        {isTutor && (
+          <span className="rounded-full bg-blue-700 px-2 py-0.5 text-[10px] font-bold tracking-wider text-blue-50 uppercase">
+            Tutor
           </span>
         )}
         <button

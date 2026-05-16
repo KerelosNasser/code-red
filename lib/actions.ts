@@ -1,10 +1,30 @@
 "use server"
 
-export type { User, Team, AdminProfile, AccessCheckPayload, ServiceResponse, AccessCheckData } from "./db/services"
+export type {
+  User,
+  Team,
+  AdminProfile,
+  AccessCheckPayload,
+  ServiceResponse,
+  AccessCheckData,
+  CourseActor,
+  CourseInput,
+  AdminNotification,
+} from "./db/services"
 
 import {
   checkUserAccess as dbCheckUserAccess,
   getCourses as dbGetCourses,
+  listCoursesForActor as dbListCoursesForActor,
+  getCourseForEdit as dbGetCourseForEdit,
+  saveCourseDraft as dbSaveCourseDraft,
+  publishCourse as dbPublishCourse,
+  deleteCourseForActor as dbDeleteCourseForActor,
+  updateLessonMedia as dbUpdateLessonMedia,
+  updateCourseThumbnail as dbUpdateCourseThumbnail,
+  createAdminNotification as dbCreateAdminNotification,
+  listAdminNotifications as dbListAdminNotifications,
+  markAdminNotificationRead as dbMarkAdminNotificationRead,
   getProducts as dbGetProducts,
   getUserAssets as dbGetUserAssets,
   getManagedUsers as dbGetManagedUsers,
@@ -17,6 +37,8 @@ import {
   updateAdminProfile as dbUpdateAdminProfile,
   submitPurchase as dbSubmitPurchase,
   type AccessCheckPayload,
+  type CourseActor,
+  type CourseInput,
   type User
 } from "./db/services"
 
@@ -26,6 +48,54 @@ export async function checkUserAccessAction(payload: AccessCheckPayload) {
 
 export async function getCoursesAction() {
   return dbGetCourses()
+}
+
+export async function listCoursesForActorAction(actor: CourseActor) {
+  return dbListCoursesForActor(actor)
+}
+
+export async function getCourseForEditAction(courseId: string, actor: CourseActor) {
+  return dbGetCourseForEdit(courseId, actor)
+}
+
+export async function saveCourseDraftAction(payload: CourseInput, actor: CourseActor) {
+  return dbSaveCourseDraft(payload, actor)
+}
+
+export async function publishCourseAction(courseId: string, actor: CourseActor) {
+  return dbPublishCourse(courseId, actor)
+}
+
+export async function deleteCourseForActorAction(courseId: string, actor: CourseActor) {
+  return dbDeleteCourseForActor(courseId, actor)
+}
+
+export async function updateLessonMediaAction(
+  lessonId: string,
+  media: { videoUrl?: string | null; resourceUrl?: string | null }
+) {
+  return dbUpdateLessonMedia(lessonId, media)
+}
+
+export async function updateCourseThumbnailAction(courseId: string, thumbnail: string, actor: CourseActor) {
+  return dbUpdateCourseThumbnail(courseId, thumbnail, actor)
+}
+
+export async function createAdminNotificationAction(payload: {
+  adminPhone?: string
+  type: string
+  message: string
+  metadata?: unknown
+}) {
+  return dbCreateAdminNotification(payload)
+}
+
+export async function listAdminNotificationsAction(adminPhone: string) {
+  return dbListAdminNotifications(adminPhone)
+}
+
+export async function markAdminNotificationReadAction(notificationId: string, adminPhone: string) {
+  return dbMarkAdminNotificationRead(notificationId, adminPhone)
 }
 
 export async function getProductsAction() {

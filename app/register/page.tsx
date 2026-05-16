@@ -52,9 +52,13 @@ export default function RegisterPage() {
         return
       }
 
-      // If already logged in as admin, go to dashboard
+      // If already logged in as admin/tutor, go to their admin area
       if (storedAccess.role === "admin") {
         router.push("/dashboard")
+        return
+      }
+      if (storedAccess.role === "tutor") {
+        router.push("/dashboard/courses")
         return
       }
 
@@ -132,7 +136,7 @@ export default function RegisterPage() {
         storeAccess(userAccess)
         window.dispatchEvent(new Event("dara_access_granted"))
         toast.success("Login successful!")
-        router.push("/")
+        router.push(userAccess.role === "tutor" ? "/dashboard/courses" : "/")
       } else {
         toast.error(
           "Account not found. Please contact your team admin to be included."

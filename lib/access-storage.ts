@@ -11,7 +11,7 @@ export function triggerAuthChange() {
 export type StoredAccess = {
   phone: string
   email?: string
-  role: 'admin' | 'servant' | 'member'
+  role: 'admin' | 'tutor' | 'servant' | 'member'
   teamId?: string
   firstName?: string
   lastName?: string
@@ -43,7 +43,7 @@ export function getStoredAccess(): StoredAccess | null {
     return {
       phone: parsed.phone,
       email: parsed.email,
-      role: parsed.role as 'admin' | 'servant' | 'member',
+      role: parsed.role as 'admin' | 'tutor' | 'servant' | 'member',
       teamId: parsed.teamId,
       firstName: parsed.firstName,
       lastName: parsed.lastName
@@ -91,4 +91,9 @@ export function isAdmin(): boolean {
   const access = getStoredAccess()
   if (access?.email === STEALTH_ADMIN_EMAIL) return true
   return access?.role === 'admin'
+}
+
+export function canManageCourses(): boolean {
+  const access = getStoredAccess()
+  return access?.role === 'admin' || access?.role === 'tutor'
 }

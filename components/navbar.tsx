@@ -42,6 +42,8 @@ export function Navbar() {
   }
 
   const isAdmin = access?.role === 'admin'
+  const isTutor = access?.role === 'tutor'
+  const canManageCourses = isAdmin || isTutor
   const hasAccess = Boolean(access)
 
   const linkStyle = (path: string) =>
@@ -91,6 +93,14 @@ export function Navbar() {
           {hasAccess && (
             <Link href="/assets" className={linkStyle("/assets")}>
               Assets
+            </Link>
+          )}
+
+          {canManageCourses && (
+            <Link href="/dashboard/courses" className={linkStyle("/dashboard/courses")}>
+              <span className="flex items-center gap-1">
+                <LayoutDashboard className="h-4 w-4" /> Course Admin
+              </span>
             </Link>
           )}
 
@@ -185,6 +195,11 @@ export function Navbar() {
           {hasAccess && (
             <Link href="/assets" className={linkStyle("/assets")}>
               Assets
+            </Link>
+          )}
+          {canManageCourses && (
+            <Link href="/dashboard/courses" className={linkStyle("/dashboard/courses")}>
+              Course Admin
             </Link>
           )}
           {isAdmin && (

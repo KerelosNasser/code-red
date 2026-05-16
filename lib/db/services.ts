@@ -1,6 +1,6 @@
 import { db } from "./index";
-import { users, teams, admins, courses, sections, lessons, products, submissions } from "./schema";
-import { eq, inArray, or } from "drizzle-orm";
+import { users, teams, admins, courses, sections, lessons, products, submissions, adminNotifications } from "./schema";
+import { and, desc, eq, inArray, or } from "drizzle-orm";
 import { normalizePhoneNumber } from "../registration";
 
 export interface User {
@@ -9,7 +9,7 @@ export interface User {
   lastName: string
   phone: string
   email?: string | null
-  role: "admin" | "servant" | "member"
+  role: "admin" | "tutor" | "servant" | "member"
   teamId?: string | null
   managedBy?: string | null
   createdAt: Date
@@ -41,8 +41,48 @@ export interface ServiceResponse<T = unknown> {
 export interface AccessCheckData {
   hasAccess: boolean
   user?: User
-  role?: "admin" | "servant" | "member"
+  role?: "admin" | "tutor" | "servant" | "member"
   teamId?: string
+}
+
+export type ActorRole = "admin" | "tutor" | "servant" | "member"
+
+export interface CourseActor {
+  phone: string
+  role: ActorRole
+}
+
+export interface LessonInput {
+  id?: string
+  title: string
+  description?: string
+  videoUrl?: string | null
+  resourceUrl?: string | null
+}
+
+export interface SectionInput {
+  id?: string
+  title: string
+  lessons: LessonInput[]
+}
+
+export interface CourseInput {
+  id?: string
+  title: string
+  description: string
+  level?: string
+  thumbnail?: string | null
+  sections: SectionInput[]
+}
+
+export interface AdminNotification {
+  id: string
+  adminPhone: string
+  type: string
+  message: string
+  metadata?: unknown
+  readAt?: Date | null
+  createdAt: Date
 }
 
 const STEALTH_ADMIN_EMAIL = "keronaser2030@gmail.com";
@@ -135,7 +175,7 @@ export async function checkUserAccess(
       data: { 
         hasAccess: true, 
         user: user as unknown as User, 
-        role: user.role as "admin" | "servant" | "member", 
+        role: user.role as ActorRole, 
         teamId: user.teamId || undefined
       } 
     };
@@ -146,24 +186,258 @@ export async function checkUserAccess(
 
 export async function getCourses(): Promise<ServiceResponse<unknown[]>> {
   try {
-    const allCourses = await db.select().from(courses);
+    const allCourses = await db.select().from(courses).where(eq(courses.status, "published"));
+    const data = await assembleCourses(allCourses);
+    return { success: true, data };
+  } catch (error: unknown) {
+    return { success: false, error: (error as Error).message };
+  }
+}
+
+async function assembleCourses(courseRows: (typeof courses.$inferSelect)[]) {
     const allSections = await db.select().from(sections);
     const allLessons = await db.select().from(lessons);
     
-    const assembledCourses = allCourses.map(course => {
+    return courseRows.map(course => {
       const courseSections = allSections
         .filter(s => s.courseId === course.id)
         .map(section => ({
           ...section,
-          lessons: allLessons.filter(l => l.sectionId === section.id).sort((a, b) => a.position - b.position)
+          lessons: allLessons
+            .filter(l => l.sectionId === section.id)
+            .sort((a, b) => a.position - b.position)
+            .map(lesson => ({
+              ...lesson,
+              url: lesson.videoUrl,
+              resource_url: lesson.resourceUrl,
+            }))
         }))
         .sort((a, b) => a.position - b.position);
       return { ...course, sections: courseSections };
     });
-    
-    return { success: true, data: assembledCourses };
+}
+
+function canManageCourse(actor: CourseActor, course: typeof courses.$inferSelect) {
+  return actor.role === "admin" || (actor.role === "tutor" && course.ownerPhone === actor.phone)
+}
+
+function assertCourseActor(actor: CourseActor) {
+  if (actor.role !== "admin" && actor.role !== "tutor") {
+    throw new Error("Course management requires admin or tutor access")
+  }
+}
+
+export async function listCoursesForActor(actor: CourseActor): Promise<ServiceResponse<unknown[]>> {
+  try {
+    assertCourseActor(actor)
+    const rows = actor.role === "admin"
+      ? await db.select().from(courses).orderBy(desc(courses.updatedAt))
+      : await db.select().from(courses).where(eq(courses.ownerPhone, actor.phone)).orderBy(desc(courses.updatedAt))
+    const data = await assembleCourses(rows)
+    return { success: true, data };
   } catch (error: unknown) {
     return { success: false, error: (error as Error).message };
+  }
+}
+
+export async function getCourseForEdit(
+  courseId: string,
+  actor: CourseActor
+): Promise<ServiceResponse<unknown>> {
+  try {
+    assertCourseActor(actor)
+    const rows = await db.select().from(courses).where(eq(courses.id, courseId))
+    if (rows.length === 0) return { success: false, error: "Course not found" }
+    if (!canManageCourse(actor, rows[0])) return { success: false, error: "Unauthorized" }
+    const data = await assembleCourses(rows)
+    return { success: true, data: data[0] }
+  } catch (error: unknown) {
+    return { success: false, error: (error as Error).message }
+  }
+}
+
+export async function saveCourseDraft(
+  payload: CourseInput,
+  actor: CourseActor
+): Promise<ServiceResponse<unknown>> {
+  try {
+    assertCourseActor(actor)
+    const now = new Date()
+    let courseId = payload.id || ""
+
+    if (courseId) {
+      const existing = await db.select().from(courses).where(eq(courses.id, courseId))
+      if (existing.length === 0) return { success: false, error: "Course not found" }
+      if (!canManageCourse(actor, existing[0])) return { success: false, error: "Unauthorized" }
+
+      await db.update(courses)
+        .set({
+          title: payload.title,
+          description: payload.description,
+          level: payload.level || "Intermediate",
+          thumbnail: payload.thumbnail || existing[0].thumbnail,
+          updatedAt: now,
+        })
+        .where(eq(courses.id, courseId))
+    } else {
+      const inserted = await db.insert(courses).values({
+        title: payload.title,
+        description: payload.description,
+        level: payload.level || "Intermediate",
+        thumbnail: payload.thumbnail || null,
+        status: "draft",
+        ownerPhone: actor.phone,
+        ownerRole: actor.role,
+        updatedAt: now,
+      }).returning({ id: courses.id })
+      courseId = inserted[0].id
+    }
+
+    await db.delete(sections).where(eq(sections.courseId, courseId))
+
+    for (const [sectionIndex, section] of payload.sections.entries()) {
+      const insertedSection = await db.insert(sections).values({
+        courseId,
+        title: section.title,
+        position: sectionIndex,
+      }).returning({ id: sections.id })
+
+      for (const [lessonIndex, lesson] of section.lessons.entries()) {
+        await db.insert(lessons).values({
+          sectionId: insertedSection[0].id,
+          title: lesson.title,
+          description: lesson.description || "",
+          videoUrl: lesson.videoUrl || null,
+          resourceUrl: lesson.resourceUrl || null,
+          position: lessonIndex,
+        })
+      }
+    }
+
+    return getCourseForEdit(courseId, actor)
+  } catch (error: unknown) {
+    return { success: false, error: (error as Error).message }
+  }
+}
+
+export async function publishCourse(
+  courseId: string,
+  actor: CourseActor
+): Promise<ServiceResponse<unknown>> {
+  try {
+    assertCourseActor(actor)
+    const rows = await db.select().from(courses).where(eq(courses.id, courseId))
+    if (rows.length === 0) return { success: false, error: "Course not found" }
+    if (!canManageCourse(actor, rows[0])) return { success: false, error: "Unauthorized" }
+
+    await db.update(courses)
+      .set({ status: "published", publishedAt: new Date(), updatedAt: new Date() })
+      .where(eq(courses.id, courseId))
+
+    return getCourseForEdit(courseId, actor)
+  } catch (error: unknown) {
+    return { success: false, error: (error as Error).message }
+  }
+}
+
+export async function deleteCourseForActor(
+  courseId: string,
+  actor: CourseActor
+): Promise<ServiceResponse<void>> {
+  try {
+    assertCourseActor(actor)
+    const rows = await db.select().from(courses).where(eq(courses.id, courseId))
+    if (rows.length === 0) return { success: false, error: "Course not found" }
+    if (!canManageCourse(actor, rows[0])) return { success: false, error: "Unauthorized" }
+
+    await db.delete(courses).where(eq(courses.id, courseId))
+    await createAdminNotification({
+      adminPhone: "system",
+      type: "course_media_deleted",
+      message: `Course deleted: ${rows[0].title}. Related database rows were removed.`,
+      metadata: { courseId, actorPhone: actor.phone },
+    })
+    return { success: true }
+  } catch (error: unknown) {
+    return { success: false, error: (error as Error).message }
+  }
+}
+
+export async function updateLessonMedia(
+  lessonId: string,
+  media: { videoUrl?: string | null; resourceUrl?: string | null }
+): Promise<ServiceResponse<void>> {
+  try {
+    await db.update(lessons).set(media).where(eq(lessons.id, lessonId))
+    return { success: true }
+  } catch (error: unknown) {
+    return { success: false, error: (error as Error).message }
+  }
+}
+
+export async function updateCourseThumbnail(
+  courseId: string,
+  thumbnail: string,
+  actor: CourseActor
+): Promise<ServiceResponse<void>> {
+  try {
+    assertCourseActor(actor)
+    const rows = await db.select().from(courses).where(eq(courses.id, courseId))
+    if (rows.length === 0) return { success: false, error: "Course not found" }
+    if (!canManageCourse(actor, rows[0])) return { success: false, error: "Unauthorized" }
+    await db.update(courses).set({ thumbnail, updatedAt: new Date() }).where(eq(courses.id, courseId))
+    return { success: true }
+  } catch (error: unknown) {
+    return { success: false, error: (error as Error).message }
+  }
+}
+
+export async function createAdminNotification(payload: {
+  adminPhone?: string
+  type: string
+  message: string
+  metadata?: unknown
+}): Promise<ServiceResponse<{ notificationId: string }>> {
+  try {
+    const inserted = await db.insert(adminNotifications).values({
+      adminPhone: payload.adminPhone || "system",
+      type: payload.type,
+      message: payload.message,
+      metadata: payload.metadata,
+    }).returning({ id: adminNotifications.id })
+    return { success: true, data: { notificationId: inserted[0].id } }
+  } catch (error: unknown) {
+    return { success: false, error: (error as Error).message }
+  }
+}
+
+export async function listAdminNotifications(
+  adminPhone: string
+): Promise<ServiceResponse<AdminNotification[]>> {
+  try {
+    const rows = await db.select().from(adminNotifications)
+      .where(or(eq(adminNotifications.adminPhone, adminPhone), eq(adminNotifications.adminPhone, "system")))
+      .orderBy(desc(adminNotifications.createdAt))
+    return { success: true, data: rows as AdminNotification[] }
+  } catch (error: unknown) {
+    return { success: false, error: (error as Error).message }
+  }
+}
+
+export async function markAdminNotificationRead(
+  notificationId: string,
+  adminPhone: string
+): Promise<ServiceResponse<void>> {
+  try {
+    await db.update(adminNotifications)
+      .set({ readAt: new Date() })
+      .where(and(
+        eq(adminNotifications.id, notificationId),
+        or(eq(adminNotifications.adminPhone, adminPhone), eq(adminNotifications.adminPhone, "system"))
+      ))
+    return { success: true }
+  } catch (error: unknown) {
+    return { success: false, error: (error as Error).message }
   }
 }
 

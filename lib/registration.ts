@@ -14,8 +14,8 @@ export const userUpsertSchema = z.object({
     .string()
     .min(11, "Phone number must be 11 digits")
     .max(11, "Phone number must be 11 digits"),
-  role: z.enum(["admin", "servant", "member"]),
-  teamId: z.string().min(1, "Team is required"),
+  role: z.enum(["admin", "tutor", "servant", "member"]),
+  teamId: z.string().optional(),
 })
 
 export function normalizePhoneNumber(phone: string): string {
