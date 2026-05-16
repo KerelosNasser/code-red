@@ -1,9 +1,12 @@
 import React from "react"
+import Link from "next/link"
+import { usePathname } from "next/navigation"
 import {
   Menu,
   X,
   LayoutDashboard,
   UserCircle,
+  BookOpen,
 } from "lucide-react"
 
 export function Sidebar({
@@ -22,6 +25,8 @@ export function Sidebar({
   collapsed: boolean
   onToggle: () => void
 }) {
+  const pathname = usePathname()
+
   return (
     <aside
       className={`hidden h-full flex-col border-r border-slate-200 bg-white transition-all duration-300 md:flex ${collapsed ? "w-16" : "w-64"} `}
@@ -41,12 +46,25 @@ export function Sidebar({
       </div>
 
       <nav className="flex-1 space-y-1 p-3">
-        <div className="flex items-center gap-3 rounded-xl bg-blue-50 px-3 py-2.5 text-blue-900">
+        <Link 
+          href="/dashboard"
+          className={`flex items-center gap-3 rounded-xl px-3 py-2.5 transition-colors ${pathname === "/dashboard" ? "bg-blue-50 text-blue-900" : "text-slate-500 hover:bg-slate-50"}`}
+        >
           <LayoutDashboard className="h-4 w-4 shrink-0" />
           {!collapsed && (
             <span className="text-sm font-semibold">Dashboard</span>
           )}
-        </div>
+        </Link>
+        
+        <Link 
+          href="/dashboard/courses"
+          className={`flex items-center gap-3 rounded-xl px-3 py-2.5 transition-colors ${pathname.startsWith("/dashboard/courses") ? "bg-blue-50 text-blue-900" : "text-slate-500 hover:bg-slate-50"}`}
+        >
+          <BookOpen className="h-4 w-4 shrink-0" />
+          {!collapsed && (
+            <span className="text-sm font-semibold">Courses</span>
+          )}
+        </Link>
       </nav>
 
       <div className="border-t border-slate-100 p-3">

@@ -31,6 +31,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        - NEXT_PUBLIC_ADMIN_PHONES=${NEXT_PUBLIC_ADMIN_PHONES}
     container_name: dara_app
     restart: always
     depends_on:

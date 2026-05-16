@@ -17,6 +17,8 @@ RUN pnpm install --frozen-lockfile
 COPY . .
 
 # 6. Build the Next.js application
+ARG NEXT_PUBLIC_ADMIN_PHONES
+ENV NEXT_PUBLIC_ADMIN_PHONES=$NEXT_PUBLIC_ADMIN_PHONES
 RUN pnpm build
 
 # 7. Expose the port Next.js runs on
