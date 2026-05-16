@@ -16,7 +16,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { MemberRow } from "./member-row"
-import { type User as GasUser, type Team as GasTeam } from "@/lib/api-client"
+import { type User as GasUser, type Team as GasTeam } from "@/lib/actions"
 
 export function TeamCard({
   team,

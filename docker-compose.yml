@@ -1,0 +1,76 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: dara_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-dara}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - dara_network
+
+  redis:
+    image: redis:7-alpine
+    container_name: dara_redis
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - dara_network
+
+  app:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    container_name: dara_app
+    restart: always
+    depends_on:
+      - db
+      - redis
+    ports:
+      - "3000:3000"
+    environment:
+      - DATABASE_URL=postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-dara}
+      - REDIS_URL=redis://redis:6379
+      - NODE_ENV=production
+      - NEXT_PUBLIC_ADMIN_PHONES=${NEXT_PUBLIC_ADMIN_PHONES}
+    volumes:
+      - ./public/videos:/app/public/videos # Shared volume for video uploads
+    networks:
+      - dara_network
+
+  worker:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    container_name: dara_worker
+    restart: always
+    command: pnpm run worker
+    depends_on:
+      - db
+      - redis
+    environment:
+      - DATABASE_URL=postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-dara}
+      - REDIS_URL=redis://redis:6379
+      - NODE_ENV=production
+    volumes:
+      - ./public/videos:/app/public/videos # Shared volume to process uploaded videos
+    networks:
+      - dara_network
+
+networks:
+  dara_network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:

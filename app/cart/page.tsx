@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation"
 import { useCartStore } from "@/lib/store/cart"
 import { Button } from "@/components/ui/button"
 import { getStoredAccess } from "@/lib/access-storage"
-import { submitPurchase } from "@/lib/api-client"
+import { submitPurchaseAction } from "@/lib/actions"
 import { toast } from "sonner"
 import { Separator } from "@/components/ui/separator"
 
@@ -27,7 +27,7 @@ export default function CartPage() {
 
     setIsCheckingOut(true)
     try {
-      const res = await submitPurchase({ 
+      const res = await submitPurchaseAction({ 
         productIds: items.map((i) => i.id),
         adminPhone: access.phone
       })

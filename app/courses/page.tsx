@@ -20,7 +20,7 @@ export default async function CoursesPage() {
   try {
     const res = await getCachedCourses()
     if (res.success && res.data && res.data.length > 0) {
-      courses = res.data
+      courses = res.data as unknown as Course[]
     } else {
       courses = MOCK_COURSES
     }

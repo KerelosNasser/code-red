@@ -13,8 +13,8 @@ import {
   RefreshCw,
 } from "lucide-react"
 import {
-  checkUserAccess,
-} from "@/lib/api-client"
+  checkUserAccessAction,
+} from "@/lib/actions"
 import {
   clearStoredAccess,
   getStoredAccess,
@@ -64,7 +64,7 @@ export default function RegisterPage() {
       }
 
       try {
-        const result = await checkUserAccess(storedAccess)
+        const result = await checkUserAccessAction({ phone: storedAccess.phone })
         if (result.data?.hasAccess) {
           setSessionValidated(true)
           router.push("/")
@@ -108,7 +108,7 @@ export default function RegisterPage() {
 
     // 2. Check if user/member from GAS
     try {
-      const result = await checkUserAccess({ phone: normalizedPhone })
+      const result = await checkUserAccessAction({ phone: normalizedPhone })
       if (result.data?.hasAccess) {
         const gasUser = result.data.user
         const fName = gasUser?.firstName || ""

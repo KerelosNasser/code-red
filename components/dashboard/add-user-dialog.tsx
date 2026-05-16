@@ -8,7 +8,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { type Team as GasTeam } from "@/lib/api-client"
+import { type Team as GasTeam } from "@/lib/actions"
 import { UseFormReturn } from "react-hook-form"
 import { type UserUpsertValues } from "@/lib/registration"
 

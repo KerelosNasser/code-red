@@ -23,7 +23,7 @@ import {
 } from "lucide-react"
 import * as Accordion from "@radix-ui/react-accordion"
 import * as Tabs from "@radix-ui/react-tabs"
-import { getCoursesFromGas } from "@/lib/api-client"
+import { getCoursesAction } from "@/lib/actions"
 import { getStoredAccess } from "@/lib/access-storage"
 import { MOCK_COURSES } from "@/lib/mock-data"
 import { Button } from "@/components/ui/button"
@@ -39,7 +39,7 @@ interface Lesson {
   drive_file_id: string
   resource_url?: string
   url: string
-  preview_url: string
+  preview_url?: string
 }
 
 interface Section {
@@ -59,7 +59,7 @@ export default function CoursePlayerPage() {
   return (
     <Suspense fallback={
       <div className="flex min-h-screen items-center justify-center bg-slate-950">
-        <div className="h-12 w-12 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+        <div className="h-12 w-12 animate-spin rounded-full border-4 border-amber-700 border-t-transparent" />
       </div>
     }>
       <CoursePlayerContent />
@@ -82,14 +82,14 @@ function CoursePlayerContent() {
   useEffect(() => {
     const init = async () => {
       try {
-        const res = await getCoursesFromGas()
+        const res = await getCoursesAction()
         let found = null
         if (res.success && res.data) {
-          found = res.data.find((c: Course) => c.id === courseId)
+          found = (res.data as Course[]).find((c: Course) => c.id === courseId)
         }
 
         if (!found) {
-          found = (MOCK_COURSES as any).find((c: any) => c.id === courseId)
+          found = (MOCK_COURSES as Course[]).find((c: Course) => c.id === courseId)
         }
 
         if (found) {
@@ -106,10 +106,10 @@ function CoursePlayerContent() {
         }
       } catch (error) {
         console.error("Failed to fetch course details:", error)
-        const found = (MOCK_COURSES as any).find((c: any) => c.id === courseId)
+        const found = (MOCK_COURSES as Course[]).find((c: Course) => c.id === courseId)
         if (found) {
           setCourse(found)
-          const allLessons = found.sections.flatMap((s: any) => s.lessons)
+          const allLessons = found.sections.flatMap((s: Section) => s.lessons)
           if (allLessons.length > 0) setActiveLesson(allLessons[0])
         }
       } finally {
@@ -121,12 +121,13 @@ function CoursePlayerContent() {
 
   const plyrSource = useMemo(() => {
     if (!activeLesson) return null
+    const isHls = activeLesson.url?.endsWith(".m3u8")
     return {
       type: "video" as const,
       sources: [
         {
           src: activeLesson.url,
-          type: "video/mp4",
+          type: isHls ? "application/x-mpegURL" : "video/mp4",
         },
       ],
     }
@@ -158,7 +159,7 @@ function CoursePlayerContent() {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-950">
         <div className="flex flex-col items-center gap-4">
-          <div className="h-12 w-12 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+          <div className="h-12 w-12 animate-spin rounded-full border-4 border-amber-700 border-t-transparent" />
           <p className="text-sm text-slate-400">Loading course...</p>
         </div>
       </div>
@@ -175,7 +176,7 @@ function CoursePlayerContent() {
         <p className="text-slate-400 mb-8 max-w-md">
           The course you are looking for cannot be found or accessed at this time.
         </p>
-        <Button asChild className="bg-primary hover:bg-primary/90">
+        <Button asChild className="bg-amber-700 hover:bg-amber-700/90">
           <Link href="/courses">Back to Courses</Link>
         </Button>
       </div>
@@ -189,7 +190,7 @@ function CoursePlayerContent() {
         <div className="flex items-center gap-3">
           <Link
             href={`/courses/${courseId}`}
-            className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-700 bg-slate-900 text-slate-400 transition-all hover:border-primary/50 hover:bg-primary/10 hover:text-primary"
+            className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-700 bg-slate-900 text-slate-400 transition-all hover:border-amber-700/50 hover:bg-amber-700/10 hover:text-amber-700"
           >
             <ChevronLeft className="h-5 w-5" />
           </Link>
@@ -207,7 +208,7 @@ function CoursePlayerContent() {
         <div className="flex items-center gap-3">
           <Badge
             variant="secondary"
-            className="hidden md:flex bg-primary/10 text-primary border-primary/30"
+            className="hidden md:flex bg-amber-700/10 text-amber-700 border-amber-700/30"
           >
             {completedLessons}/{totalLessons} lessons
           </Badge>
@@ -274,7 +275,7 @@ function CoursePlayerContent() {
                       <Badge
                         key={s.id}
                         variant="outline"
-                        className="bg-primary/5 border-primary/30 text-primary"
+                        className="bg-amber-700/5 border-amber-700/30 text-amber-700"
                       >
                         Section {idx + 1}
                       </Badge>
@@ -308,13 +309,13 @@ function CoursePlayerContent() {
                 >
                   <Tabs.Trigger
                     value="overview"
-                    className="flex-1 rounded-md px-4 py-2.5 text-sm font-medium text-slate-400 transition-all hover:text-slate-200 data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-primary/20"
+                    className="flex-1 rounded-md px-4 py-2.5 text-sm font-medium text-slate-400 transition-all hover:text-slate-200 data-[state=active]:bg-amber-700 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-amber-700/20"
                   >
                     Overview
                   </Tabs.Trigger>
                   <Tabs.Trigger
                     value="resources"
-                    className="flex-1 rounded-md px-4 py-2.5 text-sm font-medium text-slate-400 transition-all hover:text-slate-200 data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-primary/20"
+                    className="flex-1 rounded-md px-4 py-2.5 text-sm font-medium text-slate-400 transition-all hover:text-slate-200 data-[state=active]:bg-amber-700 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-amber-700/20"
                   >
                     Resources
                   </Tabs.Trigger>
@@ -339,10 +340,10 @@ function CoursePlayerContent() {
                   >
                     {activeLesson.resource_url ? (
                       <div className="space-y-4">
-                        <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-6 transition-all hover:border-primary/50 group">
+                        <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-6 transition-all hover:border-amber-700/50 group">
                           <div className="flex items-start gap-4">
-                            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 border border-primary/20">
-                              <Download className="h-6 w-6 text-primary" />
+                            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-amber-700/10 border border-amber-700/20">
+                              <Download className="h-6 w-6 text-amber-700" />
                             </div>
                             <div className="flex-1 min-w-0">
                               <h4 className="font-semibold text-white mb-1">
@@ -353,7 +354,7 @@ function CoursePlayerContent() {
                               </p>
                               <Button
                                 asChild
-                                className="bg-primary hover:bg-primary/90"
+                                className="bg-amber-700 hover:bg-amber-700/90"
                               >
                                 <a
                                   href={activeLesson.resource_url}
@@ -439,7 +440,7 @@ function CoursePlayerContent() {
                             <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
                               Section {sIdx + 1}
                             </span>
-                            <span className="text-sm font-semibold text-white leading-tight group-data-[state=open]:text-primary">
+                            <span className="text-sm font-semibold text-white leading-tight group-data-[state=open]:text-amber-700">
                               {section.title}
                             </span>
                           </div>
@@ -471,7 +472,7 @@ function CoursePlayerContent() {
                                 className={cn(
                                   "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-all my-1",
                                   isActive
-                                    ? "bg-primary/20 border border-primary/30"
+                                    ? "bg-amber-700/20 border border-amber-700/30"
                                     : "hover:bg-slate-800/50"
                                 )}
                               >
@@ -481,7 +482,7 @@ function CoursePlayerContent() {
                                     isCompleted
                                       ? "bg-green-500/20 border border-green-500/50 text-green-400"
                                       : isActive
-                                      ? "bg-primary border border-primary/50 text-primary-foreground"
+                                      ? "bg-amber-700 border border-amber-700/50 text-amber-700-foreground"
                                       : "bg-slate-800 border border-slate-700 text-slate-500"
                                   )}
                                 >
@@ -496,7 +497,7 @@ function CoursePlayerContent() {
                                     className={cn(
                                       "text-sm font-medium truncate",
                                       isActive
-                                        ? "text-primary"
+                                        ? "text-amber-700"
                                         : "text-slate-300"
                                     )}
                                   >
@@ -532,8 +533,8 @@ function CoursePlayerContent() {
                       {completedLessons}/{totalLessons}
                     </p>
                   </div>
-                  <div className="h-12 w-12 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center">
-                    <span className="text-primary font-bold">
+                  <div className="h-12 w-12 rounded-full bg-amber-700/10 border border-amber-700/20 flex items-center justify-center">
+                    <span className="text-amber-700 font-bold">
                       {Math.round((completedLessons / totalLessons) * 100) || 0}%
                     </span>
                   </div>
@@ -547,7 +548,7 @@ function CoursePlayerContent() {
         {!sidebarOpen && (
           <button
             onClick={() => setSidebarOpen(true)}
-            className="fixed bottom-6 right-6 z-30 flex h-12 w-12 items-center justify-center rounded-full bg-primary shadow-lg shadow-primary/30 transition-all hover:bg-primary/90 active:scale-95 lg:hidden"
+            className="fixed bottom-6 right-6 z-30 flex h-12 w-12 items-center justify-center rounded-full bg-amber-700 shadow-lg shadow-amber-700/30 transition-all hover:bg-amber-700/90 active:scale-95 lg:hidden"
           >
             <Menu className="h-5 w-5 text-white" />
           </button>

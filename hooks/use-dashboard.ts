@@ -3,18 +3,18 @@ import { toast } from "sonner"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import {
-  getManagedUsers,
-  upsertUser,
-  deleteUser,
-  getTeams,
-  createTeam,
-  deleteTeam,
-  getAdminProfile,
-  updateAdminProfile,
+  getManagedUsersAction,
+  upsertUserAction,
+  deleteUserAction,
+  getTeamsAction,
+  createTeamAction,
+  deleteTeamAction,
+  getAdminProfileAction,
+  updateAdminProfileAction,
   type User as GasUser,
   type Team as GasTeam,
   type AdminProfile,
-} from "@/lib/api-client"
+} from "@/lib/actions"
 import { getStoredAccess, storeAccess } from "@/lib/access-storage"
 import {
   normalizePhoneNumber,
@@ -48,7 +48,7 @@ export function useDashboard() {
   const fetchUsers = async (phone: string) => {
     setIsLoadingUsers(true)
     try {
-      const result = await getManagedUsers(phone)
+      const result = await getManagedUsersAction(phone)
       setManagedUsers(result.data || [])
     } catch {
       toast.error("Failed to load team members")
@@ -60,7 +60,7 @@ export function useDashboard() {
   const fetchTeams = async (phone: string) => {
     setIsLoadingTeams(true)
     try {
-      const result = await getTeams(phone)
+      const result = await getTeamsAction(phone)
       setTeams(result.data || [])
     } catch {
       toast.error("Failed to load teams")
@@ -71,7 +71,7 @@ export function useDashboard() {
 
   const fetchAdminProfile = async (phone: string) => {
     try {
-      const result = await getAdminProfile(phone)
+      const result = await getAdminProfileAction(phone)
       if (result.data) {
         setAdminProfile(result.data)
         setProfileFirstName(result.data.firstName || "")
@@ -129,7 +129,7 @@ export function useDashboard() {
     if (!access?.phone) return
     setIsUpdatingProfile(true)
     try {
-      await updateAdminProfile({
+      await updateAdminProfileAction({
         phone: access.phone,
         firstName: profileFirstName,
         lastName: profileLastName,
@@ -179,10 +179,10 @@ export function useDashboard() {
         role: values.role,
         teamId: values.teamId || "",
         managedBy: adminPhone,
-        createdAt: new Date().toISOString(),
+        createdAt: new Date(),
       }
 
-      const result = await upsertUser(payload)
+      const result = await upsertUserAction(payload)
       
       if (result.success) {
         toast.success(`${values.firstName} added to organization`)
@@ -195,7 +195,7 @@ export function useDashboard() {
           role: values.role,
           teamId: values.teamId || "",
           managedBy: adminPhone,
-          createdAt: new Date().toISOString(),
+          createdAt: new Date(),
         }
         setManagedUsers((prev) => [newUser, ...prev])
 
@@ -222,7 +222,7 @@ export function useDashboard() {
     if (!access?.phone || !newTeamName.trim()) return
     setIsAddingTeam(true)
     try {
-      await createTeam({ name: newTeamName.trim(), adminPhone: access.phone })
+      await createTeamAction({ name: newTeamName.trim(), adminPhone: access.phone })
       toast.success("Team created successfully")
       setNewTeamName("")
       setIsAddTeamOpen(false)
@@ -238,7 +238,7 @@ export function useDashboard() {
     if (!access?.phone) return
     if (!confirm("Delete this team? Members will become teamless.")) return
     try {
-      await deleteTeam(teamId, access.phone)
+      await deleteTeamAction(teamId, access.phone)
       toast.success("Team deleted")
       void fetchTeams(access.phone)
     } catch {
@@ -250,7 +250,7 @@ export function useDashboard() {
     if (!access?.phone) return
     if (!confirm("Remove this member?")) return
     try {
-      await deleteUser(userId, access.phone)
+      await deleteUserAction(userId, access.phone)
       toast.success("Member removed")
       void fetchUsers(access.phone)
     } catch {

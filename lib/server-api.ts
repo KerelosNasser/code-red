@@ -1,11 +1,11 @@
-import { getCoursesFromGas, getProductsFromGas } from "./api-client";
+import { getCoursesAction, getProductsAction } from "./actions";
 
 export async function getCachedCourses() {
   "use cache";
-  return getCoursesFromGas();
+  return getCoursesAction();
 }
 
 export async function getCachedProducts() {
   "use cache";
-  return getProductsFromGas();
+  return getProductsAction();
 }

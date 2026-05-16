@@ -20,9 +20,7 @@ import {
   setSessionValidated,
   type StoredAccess,
 } from "@/lib/access-storage"
-import {
-  checkUserAccess,
-} from "@/lib/api-client"
+import { checkUserAccessAction } from "@/lib/actions"
 import { Button } from "@/components/ui/button"
 import { useRouter } from "next/navigation"
 import { normalizePhoneNumber } from "@/lib/registration"
@@ -35,9 +33,23 @@ const ADMIN_PHONES = (
   .split(",")
   .map((p) => normalizePhoneNumber(p.trim()))
 
+interface HomeCourse {
+  id: string;
+  title: string;
+  description?: string;
+}
+
+interface HomeProduct {
+  id: string;
+  title: string;
+  description?: string;
+  price?: string | number;
+  imageUrl?: string;
+}
+
 interface HomeClientProps {
-  featuredCourses: any[]
-  featuredProducts: any[]
+  featuredCourses: HomeCourse[]
+  featuredProducts: HomeProduct[]
 }
 
 export default function HomeClient({ featuredCourses, featuredProducts }: HomeClientProps) {
@@ -59,7 +71,7 @@ export default function HomeClient({ featuredCourses, featuredProducts }: HomeCl
           setIsValidated(true)
         } else if (stored) {
           try {
-            const result = await checkUserAccess(stored)
+            const result = await checkUserAccessAction(stored)
             if (result.data?.hasAccess) {
               setIsValidated(true)
               setSessionValidated(true)
@@ -74,8 +86,6 @@ export default function HomeClient({ featuredCourses, featuredProducts }: HomeCl
         }
       } catch (error) {
         console.error("Failed to load home page auth data", error)
-      } finally {
-        setLoading(false)
       }
     }
 
@@ -212,7 +222,7 @@ export default function HomeClient({ featuredCourses, featuredProducts }: HomeCl
                 </div>
                 <div className="flex flex-1 flex-col p-6">
                   <h4 className="mb-3 line-clamp-2 text-xl font-bold text-slate-900 transition-colors group-hover:text-[#2E4A7D]">
-                    {course.title}
+                    {course.title as string}
                   </h4>
                   <p className="mb-6 line-clamp-3 text-sm text-slate-600">
                     {course.description ||
@@ -340,7 +350,7 @@ export default function HomeClient({ featuredCourses, featuredProducts }: HomeCl
       <footer className="mt-auto border-t border-slate-200 bg-slate-50 py-12">
         <div className="container mx-auto px-4 text-center">
           <p className="text-sm text-slate-500">
-            © 2026 M&P Didaskalia Advanced Robotics
+            &copy; 2026 M&amp;P Didaskalia Advanced Robotics
             Association (DaRa). All rights reserved.
           </p>
         </div>

@@ -1,0 +1,21 @@
+FROM node:20-alpine
+
+# 1. Install FFmpeg for video processing (required by the worker imports)
+RUN apk add --no-cache ffmpeg
+
+# 2. Install pnpm via npm
+RUN npm install -g pnpm
+
+# 3. Set working directory
+WORKDIR /app
+
+# 4. Copy package files and install dependencies
+COPY package.json pnpm-lock.yaml ./
+RUN pnpm install --frozen-lockfile
+
+# 5. Copy the rest of the application code
+COPY . .
+
+# 6. Run the typechecker and linter
+# If this command fails, the Docker build will fail, preventing bad code from passing.
+CMD ["sh", "-c", "pnpm run typecheck && pnpm run lint"]

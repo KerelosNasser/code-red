@@ -16,12 +16,15 @@ async function CourseContent({ params }: PageProps) {
 
   try {
     const res = await getCachedCourses()
-    course = res?.data?.find((c: any) => c.id === id)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    course = (res?.data as any[])?.find((c) => c.id === id)
     if (!course) {
-      course = (MOCK_COURSES as any).find((c: any) => c.id === id)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      course = (MOCK_COURSES as any[]).find((c) => c.id === id)
     }
   } catch {
-    course = (MOCK_COURSES as any).find((c: any) => c.id === id)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    course = (MOCK_COURSES as any[]).find((c) => c.id === id)
   }
 
   if (!course) {

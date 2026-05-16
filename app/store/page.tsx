@@ -9,7 +9,8 @@ export default async function StorePage() {
   try {
     const res = await getCachedProducts()
     if (res.success && res.data && res.data.length > 0) {
-      products = res.data
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      products = res.data as any[]
     } else {
       products = MOCK_PRODUCTS
     }

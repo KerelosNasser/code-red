@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react"
 import { Package, Download, ExternalLink, ShieldCheck } from "lucide-react"
 import Link from "next/link"
-import { getUserAssetsFromGas } from "@/lib/api-client"
+import { getUserAssetsAction } from "@/lib/actions"
 import { getStoredAccess } from "@/lib/access-storage"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -31,9 +31,9 @@ export default function AssetsPage() {
 
       setHasAccess(true)
       try {
-        const res = await getUserAssetsFromGas(access)
+        const res = await getUserAssetsAction(access)
         if (res.success) {
-          setAssets(res.data || [])
+          setAssets((res.data as unknown as Product[]) || [])
         }
       } catch (error) {
         console.error("Failed to fetch assets:", error)

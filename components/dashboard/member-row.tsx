@@ -1,7 +1,7 @@
 import React from "react"
 import { Trash2 } from "lucide-react"
 import { Avatar } from "./avatar"
-import { type User as GasUser } from "@/lib/api-client"
+import { type User as GasUser } from "@/lib/actions"
 
 export function MemberRow({
   user,

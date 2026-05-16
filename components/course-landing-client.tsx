@@ -19,7 +19,15 @@ import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 
 interface CourseLandingClientProps {
-  course: any
+  course: { 
+    title: string; 
+    description: string; 
+    sections: { 
+      id: string; 
+      title: string; 
+      lessons: { id: string; title: string; description?: string }[] 
+    }[] 
+  }
   id: string
 }
 
@@ -28,23 +36,29 @@ export default function CourseLandingClient({ course, id }: CourseLandingClientP
   const [hasAccess, setHasAccess] = useState(false)
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setHasAccess(!!getStoredAccess())
   }, [])
 
   const totalLessons = course.sections.reduce(
-    (acc: number, s: any) => acc + s.lessons.length,
+    (acc: number, s: { lessons: unknown[] }) => acc + s.lessons.length,
     0
   )
 
   return (
     <div className="min-h-screen bg-white text-slate-900">
       {/* HERO */}
-      <div className="relative overflow-hidden border-b border-slate-200 bg-slate-900/95">
-        <div className="absolute inset-0 bg-[linear-gradient(rgba(15,23,42,0.04)_1px,transparent_1px),linear-gradient(90deg,rgba(15,23,42,0.04)_1px,transparent_1px)] bg-[size:40px_40px]" />
-        <div className="absolute -top-40 left-1/2 h-[500px] w-[500px] -translate-x-1/2 bg-amber-500/25 blur-[100px]" />
-        <div className="absolute top-0 h-[2px] w-full bg-gradient-to-r from-transparent via-amber-500 to-transparent" />
+      <div className="relative overflow-hidden border-b border-slate-200 bg-slate-800 text-white">
+        {/* Grid Pattern */}
+        <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.05)_1px,transparent_1px)] bg-[size:40px_40px]" />
 
-        <div className="relative z-10 container mx-auto px-4 py-13">
+        {/* Amber Glow */}
+        <div className="absolute -top-40 left-1/2 h-[600px] w-[600px] -translate-x-1/2 rounded-full bg-amber-700/20 blur-[120px]" />
+
+        {/* Animated gradient line */}
+        <div className="absolute top-0 left-0 h-[2px] w-full animate-pulse bg-gradient-to-r from-transparent via-amber-500 to-transparent" />
+
+        <div className="relative z-10 container mx-auto px-4 py-16 lg:py-24">
           <div className="mx-auto max-w-4xl">
             <nav className="mb-4 text-sm text-amber-400">
               <Link href="/courses" className="transition hover:text-amber-700">
@@ -98,7 +112,7 @@ export default function CourseLandingClient({ course, id }: CourseLandingClientP
           <section>
             <h2 className="mb-6 flex items-center gap-2 text-2xl font-bold">
               <ShieldCheck className="text-amber-700" />
-              What you'll learn
+              What you&apos;ll learn
             </h2>
             <div className="grid gap-4 grid-cols-2">
               {[
@@ -120,7 +134,7 @@ export default function CourseLandingClient({ course, id }: CourseLandingClientP
           <section>
             <h2 className="mb-6 text-2xl font-bold">Course Content</h2>
             <Accordion.Root type="multiple" className="space-y-4">
-              {course.sections.map((section: any) => (
+              {course.sections.map((section: { id: string; title: string; lessons: { id: string; title: string; description?: string }[] }) => (
                 <Accordion.Item
                   key={section.id}
                   value={section.id}
@@ -132,7 +146,7 @@ export default function CourseLandingClient({ course, id }: CourseLandingClientP
                   </Accordion.Trigger>
                   <Accordion.Content>
                     <Separator className="bg-slate-200" />
-                    {section.lessons.map((lesson: any) => (
+                    {section.lessons.map((lesson: { id: string; title: string }) => (
                       <div
                         key={lesson.id}
                         className="flex items-center justify-between p-5 transition hover:bg-amber-50"
