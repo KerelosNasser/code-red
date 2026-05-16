@@ -199,7 +199,7 @@ export async function upsertUser(
 
 export async function deleteUser(
   userId: string,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+   
   adminPhone: string
 ): Promise<ServiceResponse<void>> {
   try {
@@ -240,7 +240,7 @@ export async function createTeam(payload: {
 
 export async function deleteTeam(
   teamId: string,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+   
   _adminPhone: string
 ): Promise<ServiceResponse<void>> {
   try {
