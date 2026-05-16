@@ -13,7 +13,6 @@ import {
   ChevronLeft,
   Menu,
   X,
-  Play,
   CheckCircle2,
   Download,
   Info,
@@ -24,7 +23,6 @@ import {
 import * as Accordion from "@radix-ui/react-accordion"
 import * as Tabs from "@radix-ui/react-tabs"
 import { getCoursesAction } from "@/lib/actions"
-import { getStoredAccess } from "@/lib/access-storage"
 import { MOCK_COURSES } from "@/lib/mock-data"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"

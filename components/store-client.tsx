@@ -31,10 +31,10 @@ export default function StoreClient({ initialProducts }: StoreClientProps) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setIsAdmin(true)
     } else {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
+       
       setIsAdmin(false)
     }
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+     
     setLoading(false)
   }, [])
 

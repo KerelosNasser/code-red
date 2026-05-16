@@ -67,6 +67,12 @@ services:
     networks:
       - dara_network
 
+  test:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+    container_name: dara_test
+
 networks:
   dara_network:
     driver: bridge
@@ -74,8 +80,3 @@ networks:
 volumes:
   postgres_data:
   redis_data:
-    test:
-    build:
-      context: .
-      dockerfile: Dockerfile.test
-    container_name: dara_test

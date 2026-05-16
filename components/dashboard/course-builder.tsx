@@ -1,14 +1,13 @@
 "use client"
 
 import React, { useState } from "react"
-import { useForm, useFieldArray, Controller, UseFormReturn } from "react-hook-form"
+import { useForm, useFieldArray, UseFormReturn } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
-import { Plus, Trash2, GripVertical, UploadCloud, Video, FileText, CheckCircle2 } from "lucide-react"
+import { Plus, Trash2, GripVertical, Video, FileText } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Separator } from "@/components/ui/separator"
 import { toast } from "sonner"
 
 const lessonSchema = z.object({
@@ -66,7 +65,7 @@ export default function CourseBuilder() {
       // 3. Save Drizzle structured data
       
       toast.success("Course saved successfully! Videos are processing.")
-    } catch (error) {
+    } catch {
       toast.error("Failed to save course.")
     } finally {
       setIsSubmitting(false)

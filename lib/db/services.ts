@@ -240,7 +240,8 @@ export async function createTeam(payload: {
 
 export async function deleteTeam(
   teamId: string,
-  adminPhone: string
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _adminPhone: string
 ): Promise<ServiceResponse<void>> {
   try {
     await db.delete(teams).where(eq(teams.id, teamId)); // Note: Should verify adminPhone matches

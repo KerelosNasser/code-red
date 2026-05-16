@@ -56,7 +56,6 @@ export default function HomeClient({ featuredCourses, featuredProducts }: HomeCl
   const router = useRouter()
   const [access, setAccess] = useState<StoredAccess | null>(null)
   const [isValidated, setIsValidated] = useState(false)
-  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     const init = async () => {
