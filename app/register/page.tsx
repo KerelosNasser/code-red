@@ -36,6 +36,7 @@ const ADMIN_PHONES = (
 )
   .split(",")
   .map((p) => normalizePhoneNumber(p.trim()))
+  .filter(Boolean)
 
 export default function RegisterPage() {
   const router = useRouter()
@@ -90,9 +91,16 @@ export default function RegisterPage() {
   const onLogin = async (values: LoginFormValues) => {
     setIsSubmitting(true)
     const normalizedPhone = normalizePhoneNumber(values.phone)
+    
+    console.log("DEBUG: Login attempt", {
+      input: values.phone,
+      normalized: normalizedPhone,
+      adminList: ADMIN_PHONES
+    })
 
     // 1. Check if admin from .env
     if (ADMIN_PHONES.includes(normalizedPhone)) {
+      console.log("DEBUG: Admin match found in .env")
       const adminAccess = {
         phone: normalizedPhone,
         role: "admin" as const,

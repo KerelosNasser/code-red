@@ -1,4 +1,4 @@
-import React from "react"
+import React, { Suspense } from "react"
 import CourseBuilder from "@/components/dashboard/course-builder"
 
 export default function CourseBuilderPage() {
@@ -11,7 +11,9 @@ export default function CourseBuilderPage() {
         </p>
       </div>
       
-      <CourseBuilder />
+      <Suspense fallback={<div>Loading Course Builder...</div>}>
+        <CourseBuilder />
+      </Suspense>
     </div>
   )
 }

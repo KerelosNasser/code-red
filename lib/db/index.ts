@@ -13,6 +13,10 @@ const conn = globalForDb.conn ?? new Pool({
   connectionString: process.env.DATABASE_URL,
 });
 
+conn.on('error', (err) => {
+  console.error('Unexpected error on idle DB client', err.message);
+});
+
 if (process.env.NODE_ENV !== "production") globalForDb.conn = conn;
 
 export const db = drizzle(conn, { schema });
