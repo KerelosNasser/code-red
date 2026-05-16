@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { writeFile, mkdir } from "fs/promises";
 import { join } from "path";
-import { videoQueue } from "@/lib/queue/video-queue";
 import { checkUserAccessAction, createAdminNotificationAction } from "@/lib/actions";
 import { assertSufficientStorage, StorageGuardError } from "@/lib/storage-guard";
 
@@ -48,6 +47,7 @@ export async function POST(req: Request) {
     const outputDir = join(process.cwd(), "public/videos/hls", lessonId);
 
     // Add to BullMQ processing queue
+    const { videoQueue } = await import("@/lib/queue/video-queue");
     await videoQueue.add("process-video", {
       lessonId,
       inputPath,
